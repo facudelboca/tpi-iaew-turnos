@@ -1,0 +1,44 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: iaew-turnos-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: iaew_turnos_db
+
+  rabbitmq:
+    image: rabbitmq:4.2-management
+    container_name: iaew-turnos-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:-iaew}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS:-iaew-local}
+      RUNNING_UNDER_SYSTEMD: "true"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    tmpfs:
+      - /var/lib/rabbitmq:uid=999,gid=999,mode=0770
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iaew-turnos-api
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - rabbitmq
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      MONGODB_URI: mongodb://mongodb:27017/iaew_turnos_db
+      RABBIT_URL: amqp://iaew:iaew-local@rabbitmq:5672
+
+volumes:
+  mongo_data:
