@@ -1,0 +1,502 @@
+openapi: 3.0.3
+info:
+  title: API de Reserva de Turnos de Salud
+  description: >
+    API para administrar profesionales, pacientes y turnos de salud,
+    evitando solapamientos y disparando recordatorios asincrónicos
+    vía RabbitMQ (evento turno.reservado).
+  version: 1.0.0
+servers:
+  - url: https://api.turnos-salud.local/v1
+    description: Servidor de desarrollo
+
+tags:
+  - name: Turnos
+  - name: Pacientes
+  - name: Profesionales
+  - name: Especialidades
+
+security:
+  - auth0: []
+
+paths:
+  # -------------------- TURNOS --------------------
+  /turnos:
+    get:
+      tags: [Turnos]
+      summary: Listar turnos
+      security:
+        - auth0: [read:turnos]
+      parameters:
+        - name: profesionalId
+          in: query
+          schema:
+            type: string
+        - name: fecha
+          in: query
+          description: Filtra turnos cuyo fechaHoraInicio caiga en este día (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Lista de turnos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Turno"
+
+    post:
+      tags: [Turnos]
+      summary: Reservar un turno (valida disponibilidad, bloquea y confirma en una sola operación)
+      security:
+        - auth0: [write:turnos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TurnoInput"
+            example:
+              pacienteId: "652f1a2e5b3c9a0012ab34cd"
+              profesionalId: "652f1a2e5b3c9a0012ab34ef"
+              especialidadId: "652f1a2e5b3c9a0012ab3500"
+              fechaHoraInicio: "2026-10-02T14:30:00Z"
+              fechaHoraFin: "2026-10-02T15:00:00Z"
+              motivoConsulta: "Control anual"
+              canalNotificacion: "email"
+      responses:
+        "201":
+          description: Turno confirmado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turno"
+              example:
+                id: "652f2b0e5b3c9a0012ab3611"
+                pacienteId: "652f1a2e5b3c9a0012ab34cd"
+                profesionalId: "652f1a2e5b3c9a0012ab34ef"
+                especialidadId: "652f1a2e5b3c9a0012ab3500"
+                fechaHoraInicio: "2026-10-02T14:30:00Z"
+                fechaHoraFin: "2026-10-02T15:00:00Z"
+                motivoConsulta: "Control anual"
+                estado: "CONFIRMADO"
+                recordatorioEnviado: false
+                canalNotificacion: "email"
+                creadoEn: "2026-09-24T18:32:10Z"
+        "404":
+          description: Paciente o profesional inexistente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                codigo: "PACIENTE_INEXISTENTE"
+                mensaje: "No se encontró el paciente indicado"
+        "409":
+          description: Turno ocupado / profesional no disponible en ese horario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                codigo: "TURNO_OCUPADO"
+                mensaje: "El profesional ya tiene un turno reservado en ese horario"
+
+  /turnos/{id}:
+    get:
+      tags: [Turnos]
+      summary: Obtener un turno por ID
+      security:
+        - auth0: [read:turnos]
+      parameters:
+        - $ref: "#/components/parameters/TurnoId"
+      responses:
+        "200":
+          description: Turno encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turno"
+        "404":
+          description: Turno no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags: [Turnos]
+      summary: Cancelar un turno
+      description: Solo el paciente dueño del turno o un Admin pueden cancelarlo (validación de ownership adicional al scope).
+      security:
+        - auth0: [cancel:turnos]
+      parameters:
+        - $ref: "#/components/parameters/TurnoId"
+      responses:
+        "204":
+          description: Turno cancelado correctamente
+        "400":
+          description: Cancelación inválida (ej. turno ya cancelado o ya pasó la fecha)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: El turno no pertenece al paciente autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # -------------------- PACIENTES --------------------
+  /pacientes:
+    get:
+      tags: [Pacientes]
+      summary: Listar pacientes
+      security:
+        - auth0: [admin:profesionales]
+      responses:
+        "200":
+          description: Lista de pacientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Paciente"
+    post:
+      tags: [Pacientes]
+      summary: Registrar un paciente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PacienteInput"
+      responses:
+        "201":
+          description: Paciente creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paciente"
+
+  /pacientes/{id}:
+    get:
+      tags: [Pacientes]
+      summary: Obtener un paciente por ID
+      parameters:
+        - $ref: "#/components/parameters/PacienteId"
+      responses:
+        "200":
+          description: Paciente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Paciente"
+        "404":
+          description: Paciente no encontrado
+
+  # -------------------- PROFESIONALES --------------------
+  /profesionales:
+    get:
+      tags: [Profesionales]
+      summary: Listar profesionales
+      security:
+        - auth0: [read:turnos]
+      responses:
+        "200":
+          description: Lista de profesionales
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profesional"
+    post:
+      tags: [Profesionales]
+      summary: Registrar un profesional
+      security:
+        - auth0: [admin:profesionales]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfesionalInput"
+      responses:
+        "201":
+          description: Profesional creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profesional"
+
+  /profesionales/{id}:
+    put:
+      tags: [Profesionales]
+      summary: Actualizar disponibilidad/datos de un profesional
+      security:
+        - auth0: [admin:profesionales]
+      parameters:
+        - $ref: "#/components/parameters/ProfesionalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfesionalInput"
+      responses:
+        "200":
+          description: Profesional actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profesional"
+
+  # -------------------- ESPECIALIDADES --------------------
+  /especialidades:
+    get:
+      tags: [Especialidades]
+      summary: Listar especialidades disponibles
+      responses:
+        "200":
+          description: Lista de especialidades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Especialidad"
+
+components:
+  parameters:
+    TurnoId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    PacienteId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    ProfesionalId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  securitySchemes:
+    auth0:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://TU_DOMINIO.auth0.com/authorize
+          tokenUrl: https://TU_DOMINIO.auth0.com/oauth/token
+          scopes:
+            read:turnos: Ver turnos existentes
+            write:turnos: Crear/reservar turnos
+            cancel:turnos: Cancelar turnos propios
+            admin:profesionales: Administrar profesionales y pacientes
+
+  schemas:
+    Paciente:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        apellido:
+          type: string
+        dni:
+          type: string
+        email:
+          type: string
+          format: email
+        telefono:
+          type: string
+        obraSocial:
+          type: string
+        numeroAfiliado:
+          type: string
+        activo:
+          type: boolean
+      required: [id, nombre, apellido, dni, email]
+
+    PacienteInput:
+      type: object
+      properties:
+        nombre:
+          type: string
+        apellido:
+          type: string
+        dni:
+          type: string
+        email:
+          type: string
+          format: email
+        telefono:
+          type: string
+        obraSocial:
+          type: string
+        numeroAfiliado:
+          type: string
+      required: [nombre, apellido, dni, email]
+
+    DiaAtencion:
+      type: object
+      properties:
+        dia:
+          type: string
+          enum: [lunes, martes, miercoles, jueves, viernes, sabado, domingo]
+        horaInicio:
+          type: string
+          example: "08:00"
+        horaFin:
+          type: string
+          example: "13:00"
+      required: [dia, horaInicio, horaFin]
+
+    Profesional:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        apellido:
+          type: string
+        matricula:
+          type: string
+        email:
+          type: string
+          format: email
+        telefono:
+          type: string
+        especialidades:
+          type: array
+          items:
+            type: string
+          description: IDs de Especialidad asociadas al profesional
+        diasAtencion:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiaAtencion"
+        activo:
+          type: boolean
+      required: [id, nombre, apellido, matricula, especialidades]
+
+    ProfesionalInput:
+      type: object
+      properties:
+        nombre:
+          type: string
+        apellido:
+          type: string
+        matricula:
+          type: string
+        email:
+          type: string
+          format: email
+        telefono:
+          type: string
+        especialidades:
+          type: array
+          items:
+            type: string
+        diasAtencion:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiaAtencion"
+      required: [nombre, apellido, matricula, especialidades]
+
+    Especialidad:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        duracionMinutosTurno:
+          type: integer
+          default: 30
+        activo:
+          type: boolean
+
+    TurnoInput:
+      type: object
+      properties:
+        pacienteId:
+          type: string
+        profesionalId:
+          type: string
+        especialidadId:
+          type: string
+        fechaHoraInicio:
+          type: string
+          format: date-time
+          example: "2026-10-02T14:30:00Z"
+        fechaHoraFin:
+          type: string
+          format: date-time
+          example: "2026-10-02T15:00:00Z"
+        motivoConsulta:
+          type: string
+        canalNotificacion:
+          type: string
+          enum: [email, sms, whatsapp]
+      required: [pacienteId, profesionalId, especialidadId, fechaHoraInicio, fechaHoraFin]
+
+    Turno:
+      type: object
+      properties:
+        id:
+          type: string
+        pacienteId:
+          type: string
+        profesionalId:
+          type: string
+        especialidadId:
+          type: string
+        fechaHoraInicio:
+          type: string
+          format: date-time
+        fechaHoraFin:
+          type: string
+          format: date-time
+        motivoConsulta:
+          type: string
+        estado:
+          type: string
+          enum: [PENDIENTE, CONFIRMADO, CANCELADO, COMPLETADO]
+        recordatorioEnviado:
+          type: boolean
+        fechaRecordatorio:
+          type: string
+          format: date-time
+        canalNotificacion:
+          type: string
+          enum: [email, sms, whatsapp]
+        creadoEn:
+          type: string
+          format: date-time
+      required: [id, pacienteId, profesionalId, especialidadId, fechaHoraInicio, fechaHoraFin, estado]
+
+    Error:
+      type: object
+      properties:
+        codigo:
+          type: string
+        mensaje:
+          type: string
+      required: [codigo, mensaje]
