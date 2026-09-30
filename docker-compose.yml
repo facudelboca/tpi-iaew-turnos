@@ -1,14 +1,22 @@
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: iaew-turnos-mongodb
+  postgres:
+    image: postgres:16-alpine
+    container_name: iaew-turnos-postgres
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "5432:5432"
     volumes:
-      - mongo_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
-      MONGO_INITDB_DATABASE: iaew_turnos_db
+      POSTGRES_DB: ${DB_NAME:-iaew_turnos_db}
+      POSTGRES_USER: ${DB_USER:-iaew}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-iaew-local}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-iaew} -d ${DB_NAME:-iaew_turnos_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:4.2-management
@@ -31,14 +39,21 @@ services:
     container_name: iaew-turnos-api
     restart: unless-stopped
     depends_on:
-      - mongodb
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     ports:
       - "3000:3000"
     environment:
       PORT: 3000
-      MONGODB_URI: mongodb://mongodb:27017/iaew_turnos_db
-      RABBIT_URL: amqp://iaew:iaew-local@rabbitmq:5672
+      DATABASE_URL: postgres://${DB_USER:-iaew}:${DB_PASSWORD:-iaew-local}@postgres:5432/${DB_NAME:-iaew_turnos_db}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-iaew_turnos_db}
+      DB_USER: ${DB_USER:-iaew}
+      DB_PASSWORD: ${DB_PASSWORD:-iaew-local}
+      RABBIT_URL: amqp://${RABBIT_USER:-iaew}:${RABBIT_PASS:-iaew-local}@rabbitmq:5672
 
 volumes:
-  mongo_data:
+  postgres_data:

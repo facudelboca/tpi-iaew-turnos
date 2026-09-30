@@ -1,31 +1,50 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../db');
 
-const especialidadSchema = new mongoose.Schema(
+const Especialidad = sequelize.define(
+  'Especialidad',
   {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
     nombre: {
-      type: String,
-      required: [true, 'El nombre de la especialidad es obligatorio'],
-      unique: true,
-      trim: true
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      unique: {
+        name: 'unique_especialidad_nombre',
+        msg: 'La especialidad ya existe'
+      },
+      validate: {
+        notEmpty: { msg: 'El nombre de la especialidad es obligatorio' }
+      }
     },
     descripcion: {
-      type: String,
-      trim: true
+      type: DataTypes.TEXT,
+      allowNull: true
     },
     duracionMinutosTurno: {
-      type: Number,
-      default: 30,
-      min: [10, 'La duración mínima es de 10 minutos'],
-      max: [120, 'La duración máxima es de 120 minutos']
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 30,
+      field: 'duracion_minutos_turno',
+      validate: {
+        min: { args: [10], msg: 'La duración mínima es de 10 minutos' },
+        max: { args: [120], msg: 'La duración máxima es de 120 minutos' }
+      }
     },
     activo: {
-      type: Boolean,
-      default: true
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     }
   },
   {
+    tableName: 'especialidades',
+    underscored: true,
     timestamps: true
   }
 );
 
-module.exports = mongoose.model('Especialidad', especialidadSchema);
+module.exports = Especialidad;

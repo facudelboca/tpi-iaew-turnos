@@ -26,6 +26,9 @@ app.get('/health', (req, res) => {
 });
 
 if (require.main === module) {
+  // Cargar modelos y asociaciones
+  require('./models');
+
   connectDb()
     .then(() => {
       app.listen(port, () => {
@@ -33,7 +36,7 @@ if (require.main === module) {
       });
     })
     .catch((error) => {
-      console.error('Error conectando a MongoDB:', error.message);
+      console.error('Error conectando a PostgreSQL:', error.message);
       process.exit(1);
     });
 }

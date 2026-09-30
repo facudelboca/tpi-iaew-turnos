@@ -1,68 +1,70 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../db');
 
-const diaHorarioSchema = new mongoose.Schema(
+const Profesional = sequelize.define(
+  'Profesional',
   {
-    dia: {
-      type: String,
-      enum: ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'],
-      required: true
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
-    horaInicio: {
-      type: String, // formato "HH:mm" ej: "08:00"
-      required: true
-    },
-    horaFin: {
-      type: String, // formato "HH:mm" ej: "14:00"
-      required: true
-    }
-  },
-  { _id: false }
-);
-
-const profesionalSchema = new mongoose.Schema(
-  {
     nombre: {
-      type: String,
-      required: [true, 'El nombre del profesional es obligatorio'],
-      trim: true
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: 'El nombre del profesional es obligatorio' }
+      }
     },
     apellido: {
-      type: String,
-      required: [true, 'El apellido del profesional es obligatorio'],
-      trim: true
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: 'El apellido del profesional es obligatorio' }
+      }
     },
     matricula: {
-      type: String,
-      required: [true, 'La matrícula es obligatoria'],
-      unique: true,
-      trim: true
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: {
+        name: 'unique_profesional_matricula',
+        msg: 'La matrícula ya se encuentra registrada'
+      },
+      validate: {
+        notEmpty: { msg: 'La matrícula es obligatoria' }
+      }
+    },
+    especialidadId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'especialidad_id',
+      validate: {
+        notNull: { msg: 'La especialidad es obligatoria' }
+      }
     },
     email: {
-      type: String,
-      required: [true, 'El email es obligatorio'],
-      trim: true,
-      lowercase: true
+      type: DataTypes.STRING(150),
+      allowNull: false,
+      validate: {
+        isEmail: { msg: 'El formato del correo es inválido' },
+        notEmpty: { msg: 'El correo electrónico es obligatorio' }
+      }
     },
     telefono: {
-      type: String,
-      trim: true
+      type: DataTypes.STRING(50),
+      allowNull: true
     },
-    especialidades: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Especialidad',
-        required: true
-      }
-    ],
-    diasAtencion: [diaHorarioSchema],
     activo: {
-      type: Boolean,
-      default: true
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     }
   },
   {
+    tableName: 'profesionales',
+    underscored: true,
     timestamps: true
   }
 );
 
-module.exports = mongoose.model('Profesional', profesionalSchema);
+module.exports = Profesional;

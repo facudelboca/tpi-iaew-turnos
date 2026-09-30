@@ -1,25 +1,24 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
-const { connectDb } = require('./db');
-const Especialidad = require('./models/Especialidad');
-const Profesional = require('./models/Profesional');
-const Paciente = require('./models/Paciente');
-const Turno = require('./models/Turno');
+const {
+  sequelize,
+  Especialidad,
+  Profesional,
+  ProfesionalDiaAtencion,
+  Paciente,
+  Turno
+} = require('./models');
 
 async function seed() {
   try {
-    await connectDb();
-    console.log('Iniciando seed de datos para Sistema de Reserva de Turnos...');
-
-    // Limpiar colecciones
-    await Especialidad.deleteMany({});
-    await Profesional.deleteMany({});
-    await Paciente.deleteMany({});
-    await Turno.deleteMany({});
-    console.log('Colecciones limpiadas correctamente.');
+    console.log('Conectando a PostgreSQL para ejecutar seed...');
+    await sequelize.authenticate();
+    
+    // Forzar recreación limpia de tablas
+    await sequelize.sync({ force: true });
+    console.log('Tablas recreadas y limpias exitosamente.');
 
     // 1. Crear Especialidades
-    const especialidadesData = [
+    const especialidades = await Especialidad.bulkCreate([
       {
         nombre: 'Cardiología',
         descripcion: 'Especialidad médica encargada de las enfermedades del corazón y del aparato circulatorio.',
@@ -45,58 +44,55 @@ async function seed() {
         descripcion: 'Diagnóstico y tratamiento de patologías de la piel, mucosas, uñas y cabello.',
         duracionMinutosTurno: 20
       }
-    ];
-
-    const especialidades = await Especialidad.insertMany(especialidadesData);
+    ]);
     console.log(`✓ ${especialidades.length} especialidades creadas.`);
 
-    // 2. Crear Profesionales
-    const profesionalesData = [
-      {
-        nombre: 'Valeria',
-        apellido: 'González',
-        matricula: 'MP-45892',
-        email: 'vgonzalez@salud.local',
-        telefono: '+54 351 445-1201',
-        especialidades: [especialidades[0]._id, especialidades[2]._id], // Cardiología y Clínica
-        diasAtencion: [
-          { dia: 'LUNES', horaInicio: '08:00', horaFin: '13:00' },
-          { dia: 'MIERCOLES', horaInicio: '08:00', horaFin: '13:00' },
-          { dia: 'VIERNES', horaInicio: '08:00', horaFin: '12:00' }
-        ]
-      },
-      {
-        nombre: 'Martín',
-        apellido: 'López',
-        matricula: 'MP-33104',
-        email: 'mlopez@salud.local',
-        telefono: '+54 351 445-1202',
-        especialidades: [especialidades[1]._id], // Traumatología
-        diasAtencion: [
-          { dia: 'MARTES', horaInicio: '09:00', horaFin: '14:00' },
-          { dia: 'JUEVES', horaInicio: '09:00', horaFin: '14:00' }
-        ]
-      },
-      {
-        nombre: 'Sofía',
-        apellido: 'Herrera',
-        matricula: 'MP-51299',
-        email: 'sherrera@salud.local',
-        telefono: '+54 351 445-1203',
-        especialidades: [especialidades[3]._id], // Pediatría
-        diasAtencion: [
-          { dia: 'LUNES', horaInicio: '14:00', horaFin: '18:00' },
-          { dia: 'MIERCOLES', horaInicio: '14:00', horaFin: '18:00' },
-          { dia: 'VIERNES', horaInicio: '14:00', horaFin: '18:00' }
-        ]
-      }
-    ];
+    // 2. Crear Profesionales (1 Especialidad por Profesional)
+    const prof1 = await Profesional.create({
+      nombre: 'Valeria',
+      apellido: 'González',
+      matricula: 'MP-45892',
+      especialidadId: especialidades[0].id, // Cardiología
+      email: 'vgonzalez@salud.local',
+      telefono: '+54 351 445-1201'
+    });
+    await ProfesionalDiaAtencion.bulkCreate([
+      { profesionalId: prof1.id, dia: 'LUNES', horaInicio: '08:00', horaFin: '13:00' },
+      { profesionalId: prof1.id, dia: 'MIERCOLES', horaInicio: '08:00', horaFin: '13:00' },
+      { profesionalId: prof1.id, dia: 'VIERNES', horaInicio: '08:00', horaFin: '12:00' }
+    ]);
 
-    const profesionales = await Profesional.insertMany(profesionalesData);
-    console.log(`✓ ${profesionales.length} profesionales creados.`);
+    const prof2 = await Profesional.create({
+      nombre: 'Martín',
+      apellido: 'López',
+      matricula: 'MP-33104',
+      especialidadId: especialidades[1].id, // Traumatología
+      email: 'mlopez@salud.local',
+      telefono: '+54 351 445-1202'
+    });
+    await ProfesionalDiaAtencion.bulkCreate([
+      { profesionalId: prof2.id, dia: 'MARTES', horaInicio: '09:00', horaFin: '14:00' },
+      { profesionalId: prof2.id, dia: 'JUEVES', horaInicio: '09:00', horaFin: '14:00' }
+    ]);
+
+    const prof3 = await Profesional.create({
+      nombre: 'Sofía',
+      apellido: 'Herrera',
+      matricula: 'MP-51299',
+      especialidadId: especialidades[3].id, // Pediatría
+      email: 'sherrera@salud.local',
+      telefono: '+54 351 445-1203'
+    });
+    await ProfesionalDiaAtencion.bulkCreate([
+      { profesionalId: prof3.id, dia: 'LUNES', horaInicio: '14:00', horaFin: '18:00' },
+      { profesionalId: prof3.id, dia: 'MIERCOLES', horaInicio: '14:00', horaFin: '18:00' },
+      { profesionalId: prof3.id, dia: 'VIERNES', horaInicio: '14:00', horaFin: '18:00' }
+    ]);
+
+    console.log(`✓ 3 profesionales creados con su especialidad y agendas asociadas.`);
 
     // 3. Crear Pacientes
-    const pacientesData = [
+    const pacientes = await Paciente.bulkCreate([
       {
         nombre: 'Juan',
         apellido: 'Pérez',
@@ -124,12 +120,10 @@ async function seed() {
         obraSocial: 'Particular',
         numeroAfiliado: null
       }
-    ];
-
-    const pacientes = await Paciente.insertMany(pacientesData);
+    ]);
     console.log(`✓ ${pacientes.length} pacientes creados.`);
 
-    // 4. Crear Turnos de ejemplo
+    // 4. Crear Turno de ejemplo
     const mañana = new Date();
     mañana.setDate(mañana.getDate() + 1);
     mañana.setHours(9, 0, 0, 0);
@@ -137,37 +131,31 @@ async function seed() {
     const finMañana = new Date(mañana);
     finMañana.setMinutes(finMañana.getMinutes() + 30);
 
-    const turnosData = [
-      {
-        pacienteId: pacientes[0]._id,
-        profesionalId: profesionales[0]._id,
-        especialidadId: especialidades[0]._id,
-        fechaHoraInicio: mañana,
-        fechaHoraFin: finMañana,
-        motivoConsulta: 'Control cardiológico anual y ecocardiograma',
-        estado: 'CONFIRMADO',
-        canalNotificacion: 'EMAIL'
-      }
-    ];
-
-    const turnos = await Turno.insertMany(turnosData);
-    console.log(`✓ ${turnos.length} turnos iniciales creados.`);
+    const turno = await Turno.create({
+      pacienteId: pacientes[0].id,
+      profesionalId: prof1.id,
+      especialidadId: especialidades[0].id,
+      fechaHoraInicio: mañana,
+      fechaHoraFin: finMañana,
+      motivoConsulta: 'Control cardiológico anual y ecocardiograma',
+      estado: 'CONFIRMADO',
+      canalNotificacion: 'EMAIL'
+    });
+    console.log(`✓ 1 turno inicial de prueba creado.`);
 
     console.log('\n--- Resumen de IDs para pruebas rápidas ---');
-    console.log(`Paciente ID:     ${pacientes[0]._id} (${pacientes[0].nombre} ${pacientes[0].apellido})`);
-    console.log(`Profesional ID:  ${profesionales[0]._id} (${profesionales[0].nombre} ${profesionales[0].apellido})`);
-    console.log(`Especialidad ID: ${especialidades[0]._id} (${especialidades[0].nombre})`);
-    console.log(`Turno ID:        ${turnos[0]._id}`);
+    console.log(`Paciente ID:     ${pacientes[0].id} (${pacientes[0].nombre} ${pacientes[0].apellido})`);
+    console.log(`Profesional ID:  ${prof1.id} (${prof1.nombre} ${prof1.apellido}) - Esp: ${especialidades[0].nombre}`);
+    console.log(`Especialidad ID: ${especialidades[0].id} (${especialidades[0].nombre})`);
+    console.log(`Turno ID:        ${turno.id}`);
     console.log('-------------------------------------------\n');
 
-    console.log('Seed finalizado con éxito.');
-    await mongoose.connection.close();
+    console.log('Seed de PostgreSQL finalizado con éxito.');
+    await sequelize.close();
     process.exit(0);
   } catch (error) {
     console.error('Error durante el seed:', error);
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-    }
+    await sequelize.close();
     process.exit(1);
   }
 }

@@ -381,18 +381,16 @@ components:
           format: email
         telefono:
           type: string
-        especialidades:
-          type: array
-          items:
-            type: string
-          description: IDs de Especialidad asociadas al profesional
+        especialidadId:
+          type: string
+          description: ID de la Especialidad a la que pertenece el profesional
         diasAtencion:
           type: array
           items:
             $ref: "#/components/schemas/DiaAtencion"
         activo:
           type: boolean
-      required: [id, nombre, apellido, matricula, especialidades]
+      required: [id, nombre, apellido, matricula, especialidadId]
 
     ProfesionalInput:
       type: object
@@ -403,20 +401,19 @@ components:
           type: string
         matricula:
           type: string
+        especialidadId:
+          type: string
+          description: ID de la Especialidad del profesional
         email:
           type: string
           format: email
         telefono:
           type: string
-        especialidades:
-          type: array
-          items:
-            type: string
         diasAtencion:
           type: array
           items:
             $ref: "#/components/schemas/DiaAtencion"
-      required: [nombre, apellido, matricula, especialidades]
+      required: [nombre, apellido, matricula, especialidadId]
 
     Especialidad:
       type: object

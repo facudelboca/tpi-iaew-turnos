@@ -1,63 +1,114 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../db');
 
-const turnoSchema = new mongoose.Schema(
+const Turno = sequelize.define(
+  'Turno',
   {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
     pacienteId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Paciente',
-      required: [true, 'El paciente es obligatorio']
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'paciente_id',
+      validate: {
+        notNull: { msg: 'El paciente es obligatorio' }
+      }
     },
     profesionalId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Profesional',
-      required: [true, 'El profesional es obligatorio']
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'profesional_id',
+      validate: {
+        notNull: { msg: 'El profesional es obligatorio' }
+      }
     },
     especialidadId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Especialidad',
-      required: [true, 'La especialidad es obligatoria']
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'especialidad_id',
+      validate: {
+        notNull: { msg: 'La especialidad es obligatoria' }
+      }
     },
     fechaHoraInicio: {
-      type: Date,
-      required: [true, 'La fecha y hora de inicio es obligatoria']
+      type: DataTypes.DATE,
+      allowNull: false,
+      field: 'fecha_hora_inicio',
+      validate: {
+        notNull: { msg: 'La fecha y hora de inicio es obligatoria' }
+      }
     },
     fechaHoraFin: {
-      type: Date,
-      required: [true, 'La fecha y hora de fin es obligatoria']
+      type: DataTypes.DATE,
+      allowNull: false,
+      field: 'fecha_hora_fin',
+      validate: {
+        notNull: { msg: 'La fecha y hora de fin es obligatoria' }
+      }
     },
     motivoConsulta: {
-      type: String,
-      trim: true
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'motivo_consulta'
     },
     estado: {
-      type: String,
-      enum: ['PENDIENTE', 'CONFIRMADO', 'CANCELADO', 'COMPLETADO'],
-      default: 'PENDIENTE'
+      type: DataTypes.ENUM('PENDIENTE', 'CONFIRMADO', 'CANCELADO', 'COMPLETADO'),
+      allowNull: false,
+      defaultValue: 'PENDIENTE',
+      validate: {
+        isIn: {
+          args: [['PENDIENTE', 'CONFIRMADO', 'CANCELADO', 'COMPLETADO']],
+          msg: 'Estado de turno inválido'
+        }
+      }
     },
     canalNotificacion: {
-      type: String,
-      enum: ['EMAIL', 'WHATSAPP', 'SMS'],
-      default: 'EMAIL'
+      type: DataTypes.ENUM('EMAIL', 'WHATSAPP', 'SMS'),
+      allowNull: false,
+      defaultValue: 'EMAIL',
+      field: 'canal_notificacion',
+      validate: {
+        isIn: {
+          args: [['EMAIL', 'WHATSAPP', 'SMS']],
+          msg: 'Canal de notificación inválido'
+        }
+      }
     },
     recordatorioEnviado: {
-      type: Boolean,
-      default: false
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'recordatorio_enviado'
     },
     fechaRecordatorio: {
-      type: Date
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'fecha_recordatorio'
     },
     motivoCancelacion: {
-      type: String,
-      trim: true
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'motivo_cancelacion'
     }
   },
   {
-    timestamps: true
+    tableName: 'turnos',
+    underscored: true,
+    timestamps: true,
+    indexes: [
+      {
+        name: 'idx_turnos_profesional_fecha_estado',
+        fields: ['profesional_id', 'fecha_hora_inicio', 'estado']
+      },
+      {
+        name: 'idx_turnos_paciente_fecha',
+        fields: ['paciente_id', 'fecha_hora_inicio']
+      }
+    ]
   }
 );
 
-// Índice compuesto para acelerar búsquedas de agenda y control de turnos
-turnoSchema.index({ profesionalId: 1, fechaHoraInicio: 1, estado: 1 });
-turnoSchema.index({ pacienteId: 1, fechaHoraInicio: 1 });
-
-module.exports = mongoose.model('Turno', turnoSchema);
+module.exports = Turno;
