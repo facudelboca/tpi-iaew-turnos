@@ -91,3 +91,18 @@ docker compose down
   - [`03_seguridad.md`](./docs/adr/03_seguridad.md): Auth0 con OAuth2 + JWT y RBAC con scopes granulares.
   - [`04_estilo_api.md`](./docs/adr/04_estilo_api.md): REST para transacciones y CRUD + WebSockets de solo lectura para agenda en vivo.
 - **Contrato OpenAPI 3.1:** En [`docs/openapi.yaml`](./docs/openapi.yaml).
+
+## Documentación de la API (Swagger)
+
+Para visualizar el contrato de la API de forma interactiva:
+
+```bash
+npx swagger-ui-watcher docs/openapi.yaml
+```
+
+> **Nota:** el comando asume que estás parado en la raíz del proyecto. Si ejecutás el comando estando dentro de la carpeta `docs/`, usá la ruta relativa sin el prefijo:
+> ```bash
+> npx swagger-ui-watcher openapi.yaml
+> ```
+
+Esto levanta un servidor local con la documentación completa de los endpoints, schemas y ejemplos de request/response. Se actualiza automáticamente al guardar cambios en el archivo. Para detener el servidor, `Ctrl + C`.

@@ -28,13 +28,13 @@ paths:
       security:
         - auth0: [read:turnos]
       parameters:
-        - name: profesionalId
+        - name: profesional_id
           in: query
           schema:
-            type: string
+            type: integer
         - name: fecha
           in: query
-          description: Filtra turnos cuyo fechaHoraInicio caiga en este día (YYYY-MM-DD)
+          description: Filtra turnos cuyo fecha_hora_inicio caiga en este día (YYYY-MM-DD)
           schema:
             type: string
             format: date
@@ -60,13 +60,13 @@ paths:
             schema:
               $ref: "#/components/schemas/TurnoInput"
             example:
-              pacienteId: "652f1a2e5b3c9a0012ab34cd"
-              profesionalId: "652f1a2e5b3c9a0012ab34ef"
-              especialidadId: "652f1a2e5b3c9a0012ab3500"
+              pacienteId: 101
+              profesionalId: 205
+              especialidadId: 3
               fechaHoraInicio: "2026-10-02T14:30:00Z"
               fechaHoraFin: "2026-10-02T15:00:00Z"
               motivoConsulta: "Control anual"
-              canalNotificacion: "email"
+              canalNotificacion: "EMAIL"
       responses:
         "201":
           description: Turno confirmado
@@ -75,16 +75,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/Turno"
               example:
-                id: "652f2b0e5b3c9a0012ab3611"
-                pacienteId: "652f1a2e5b3c9a0012ab34cd"
-                profesionalId: "652f1a2e5b3c9a0012ab34ef"
-                especialidadId: "652f1a2e5b3c9a0012ab3500"
+                id: 4821
+                pacienteId: 101
+                profesionalId: 205
+                especialidadId: 3
                 fechaHoraInicio: "2026-10-02T14:30:00Z"
                 fechaHoraFin: "2026-10-02T15:00:00Z"
                 motivoConsulta: "Control anual"
                 estado: "CONFIRMADO"
                 recordatorioEnviado: false
-                canalNotificacion: "email"
+                canalNotificacion: "EMAIL"
                 creadoEn: "2026-09-24T18:32:10Z"
         "404":
           description: Paciente o profesional inexistente
@@ -279,19 +279,19 @@ components:
       in: path
       required: true
       schema:
-        type: string
+        type: integer
     PacienteId:
       name: id
       in: path
       required: true
       schema:
-        type: string
+        type: integer
     ProfesionalId:
       name: id
       in: path
       required: true
       schema:
-        type: string
+        type: integer
 
   securitySchemes:
     auth0:
@@ -311,7 +311,7 @@ components:
       type: object
       properties:
         id:
-          type: string
+          type: integer
         nombre:
           type: string
         apellido:
@@ -354,9 +354,11 @@ components:
     DiaAtencion:
       type: object
       properties:
+        id:
+          type: integer
         dia:
           type: string
-          enum: [lunes, martes, miercoles, jueves, viernes, sabado, domingo]
+          enum: [LUNES, MARTES, MIERCOLES, JUEVES, VIERNES, SABADO, DOMINGO]
         horaInicio:
           type: string
           example: "08:00"
@@ -369,28 +371,29 @@ components:
       type: object
       properties:
         id:
-          type: string
+          type: integer
         nombre:
           type: string
         apellido:
           type: string
         matricula:
           type: string
+        especialidadId:
+          type: integer
+          description: Especialidad única del profesional (FK a Especialidad)
         email:
           type: string
           format: email
         telefono:
           type: string
-        especialidadId:
-          type: string
-          description: ID de la Especialidad a la que pertenece el profesional
         diasAtencion:
           type: array
           items:
             $ref: "#/components/schemas/DiaAtencion"
+          description: Se administran en /profesionales/{id}/dias-atencion
         activo:
           type: boolean
-      required: [id, nombre, apellido, matricula, especialidadId]
+      required: [id, nombre, apellido, matricula, especialidadId, email]
 
     ProfesionalInput:
       type: object
@@ -402,24 +405,19 @@ components:
         matricula:
           type: string
         especialidadId:
-          type: string
-          description: ID de la Especialidad del profesional
+          type: integer
         email:
           type: string
           format: email
         telefono:
           type: string
-        diasAtencion:
-          type: array
-          items:
-            $ref: "#/components/schemas/DiaAtencion"
-      required: [nombre, apellido, matricula, especialidadId]
+      required: [nombre, apellido, matricula, especialidadId, email]
 
     Especialidad:
       type: object
       properties:
         id:
-          type: string
+          type: integer
         nombre:
           type: string
         descripcion:
@@ -427,6 +425,8 @@ components:
         duracionMinutosTurno:
           type: integer
           default: 30
+          minimum: 10
+          maximum: 120
         activo:
           type: boolean
 
@@ -434,11 +434,11 @@ components:
       type: object
       properties:
         pacienteId:
-          type: string
+          type: integer
         profesionalId:
-          type: string
+          type: integer
         especialidadId:
-          type: string
+          type: integer
         fechaHoraInicio:
           type: string
           format: date-time
@@ -451,20 +451,21 @@ components:
           type: string
         canalNotificacion:
           type: string
-          enum: [email, sms, whatsapp]
+          enum: [EMAIL, WHATSAPP, SMS]
+          default: EMAIL
       required: [pacienteId, profesionalId, especialidadId, fechaHoraInicio, fechaHoraFin]
 
     Turno:
       type: object
       properties:
         id:
-          type: string
+          type: integer
         pacienteId:
-          type: string
+          type: integer
         profesionalId:
-          type: string
+          type: integer
         especialidadId:
-          type: string
+          type: integer
         fechaHoraInicio:
           type: string
           format: date-time
@@ -481,9 +482,12 @@ components:
         fechaRecordatorio:
           type: string
           format: date-time
+        motivoCancelacion:
+          type: string
+          description: Solo presente si el turno fue cancelado
         canalNotificacion:
           type: string
-          enum: [email, sms, whatsapp]
+          enum: [EMAIL, WHATSAPP, SMS]
         creadoEn:
           type: string
           format: date-time
