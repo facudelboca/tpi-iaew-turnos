@@ -1,0 +1,850 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API de Reserva de Turnos de Salud",
+    "description": "API para administrar profesionales, pacientes y turnos de salud, evitando solapamientos y disparando recordatorios asincrónicos vía RabbitMQ (evento turno.reservado).\n",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.turnos-salud.local/v1",
+      "description": "Servidor de desarrollo"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Turnos"
+    },
+    {
+      "name": "Pacientes"
+    },
+    {
+      "name": "Profesionales"
+    },
+    {
+      "name": "Especialidades"
+    }
+  ],
+  "security": [
+    {
+      "auth0": []
+    }
+  ],
+  "paths": {
+    "/turnos": {
+      "get": {
+        "tags": [
+          "Turnos"
+        ],
+        "summary": "Listar turnos",
+        "security": [
+          {
+            "auth0": [
+              "read:turnos"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "profesional_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "fecha",
+            "in": "query",
+            "description": "Filtra turnos cuyo fecha_hora_inicio caiga en este día (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de turnos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Turno"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Turnos"
+        ],
+        "summary": "Reservar un turno (valida disponibilidad, bloquea y confirma en una sola operación)",
+        "security": [
+          {
+            "auth0": [
+              "write:turnos"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnoInput"
+              },
+              "example": {
+                "pacienteId": 101,
+                "profesionalId": 205,
+                "especialidadId": 3,
+                "fechaHoraInicio": "2026-10-02T14:30:00Z",
+                "fechaHoraFin": "2026-10-02T15:00:00Z",
+                "motivoConsulta": "Control anual",
+                "canalNotificacion": "EMAIL"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Turno confirmado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                },
+                "example": {
+                  "id": 4821,
+                  "pacienteId": 101,
+                  "profesionalId": 205,
+                  "especialidadId": 3,
+                  "fechaHoraInicio": "2026-10-02T14:30:00Z",
+                  "fechaHoraFin": "2026-10-02T15:00:00Z",
+                  "motivoConsulta": "Control anual",
+                  "estado": "CONFIRMADO",
+                  "recordatorioEnviado": false,
+                  "canalNotificacion": "EMAIL",
+                  "creadoEn": "2026-09-24T18:32:10Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Paciente o profesional inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "codigo": "PACIENTE_INEXISTENTE",
+                  "mensaje": "No se encontró el paciente indicado"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Turno ocupado / profesional no disponible en ese horario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "codigo": "TURNO_OCUPADO",
+                  "mensaje": "El profesional ya tiene un turno reservado en ese horario"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/turnos/{id}": {
+      "get": {
+        "tags": [
+          "Turnos"
+        ],
+        "summary": "Obtener un turno por ID",
+        "security": [
+          {
+            "auth0": [
+              "read:turnos"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TurnoId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Turno encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Turno no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Turnos"
+        ],
+        "summary": "Cancelar un turno",
+        "description": "Solo el paciente dueño del turno o un Admin pueden cancelarlo (validación de ownership adicional al scope).",
+        "security": [
+          {
+            "auth0": [
+              "cancel:turnos"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TurnoId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Turno cancelado correctamente"
+          },
+          "400": {
+            "description": "Cancelación inválida (ej. turno ya cancelado o ya pasó la fecha)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El turno no pertenece al paciente autenticado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pacientes": {
+      "get": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Listar pacientes",
+        "security": [
+          {
+            "auth0": [
+              "admin:profesionales"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de pacientes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Paciente"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Registrar un paciente",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PacienteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Paciente creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paciente"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pacientes/{id}": {
+      "get": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Obtener un paciente por ID",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PacienteId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paciente encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paciente"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Paciente no encontrado"
+          }
+        }
+      }
+    },
+    "/profesionales": {
+      "get": {
+        "tags": [
+          "Profesionales"
+        ],
+        "summary": "Listar profesionales",
+        "security": [
+          {
+            "auth0": [
+              "read:turnos"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de profesionales",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Profesional"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profesionales"
+        ],
+        "summary": "Registrar un profesional",
+        "security": [
+          {
+            "auth0": [
+              "admin:profesionales"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfesionalInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Profesional creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesional"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profesionales/{id}": {
+      "put": {
+        "tags": [
+          "Profesionales"
+        ],
+        "summary": "Actualizar disponibilidad/datos de un profesional",
+        "security": [
+          {
+            "auth0": [
+              "admin:profesionales"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProfesionalId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfesionalInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profesional actualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profesional"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/especialidades": {
+      "get": {
+        "tags": [
+          "Especialidades"
+        ],
+        "summary": "Listar especialidades disponibles",
+        "responses": {
+          "200": {
+            "description": "Lista de especialidades",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Especialidad"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "TurnoId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "PacienteId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "ProfesionalId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    },
+    "securitySchemes": {
+      "auth0": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://TU_DOMINIO.auth0.com/authorize",
+            "tokenUrl": "https://TU_DOMINIO.auth0.com/oauth/token",
+            "scopes": {
+              "read:turnos": "Ver turnos existentes",
+              "write:turnos": "Crear/reservar turnos",
+              "cancel:turnos": "Cancelar turnos propios",
+              "admin:profesionales": "Administrar profesionales y pacientes"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Paciente": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "obraSocial": {
+            "type": "string"
+          },
+          "numeroAfiliado": {
+            "type": "string"
+          },
+          "activo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "apellido",
+          "dni",
+          "email"
+        ]
+      },
+      "PacienteInput": {
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "obraSocial": {
+            "type": "string"
+          },
+          "numeroAfiliado": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nombre",
+          "apellido",
+          "dni",
+          "email"
+        ]
+      },
+      "DiaAtencion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "dia": {
+            "type": "string",
+            "enum": [
+              "LUNES",
+              "MARTES",
+              "MIERCOLES",
+              "JUEVES",
+              "VIERNES",
+              "SABADO",
+              "DOMINGO"
+            ]
+          },
+          "horaInicio": {
+            "type": "string",
+            "example": "08:00"
+          },
+          "horaFin": {
+            "type": "string",
+            "example": "13:00"
+          }
+        },
+        "required": [
+          "dia",
+          "horaInicio",
+          "horaFin"
+        ]
+      },
+      "Profesional": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "matricula": {
+            "type": "string"
+          },
+          "especialidadId": {
+            "type": "integer",
+            "description": "Especialidad única del profesional (FK a Especialidad)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "diasAtencion": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiaAtencion"
+            },
+            "description": "Se administran en /profesionales/{id}/dias-atencion"
+          },
+          "activo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "apellido",
+          "matricula",
+          "especialidadId",
+          "email"
+        ]
+      },
+      "ProfesionalInput": {
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "matricula": {
+            "type": "string"
+          },
+          "especialidadId": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "telefono": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nombre",
+          "apellido",
+          "matricula",
+          "especialidadId",
+          "email"
+        ]
+      },
+      "Especialidad": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "duracionMinutosTurno": {
+            "type": "integer",
+            "default": 30,
+            "minimum": 10,
+            "maximum": 120
+          },
+          "activo": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TurnoInput": {
+        "type": "object",
+        "properties": {
+          "pacienteId": {
+            "type": "integer"
+          },
+          "profesionalId": {
+            "type": "integer"
+          },
+          "especialidadId": {
+            "type": "integer"
+          },
+          "fechaHoraInicio": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-02T14:30:00Z"
+          },
+          "fechaHoraFin": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-02T15:00:00Z"
+          },
+          "motivoConsulta": {
+            "type": "string"
+          },
+          "canalNotificacion": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "WHATSAPP",
+              "SMS"
+            ],
+            "default": "EMAIL"
+          }
+        },
+        "required": [
+          "pacienteId",
+          "profesionalId",
+          "especialidadId",
+          "fechaHoraInicio",
+          "fechaHoraFin"
+        ]
+      },
+      "Turno": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "pacienteId": {
+            "type": "integer"
+          },
+          "profesionalId": {
+            "type": "integer"
+          },
+          "especialidadId": {
+            "type": "integer"
+          },
+          "fechaHoraInicio": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaHoraFin": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivoConsulta": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE",
+              "CONFIRMADO",
+              "CANCELADO",
+              "COMPLETADO"
+            ]
+          },
+          "recordatorioEnviado": {
+            "type": "boolean"
+          },
+          "fechaRecordatorio": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivoCancelacion": {
+            "type": "string",
+            "description": "Solo presente si el turno fue cancelado"
+          },
+          "canalNotificacion": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "WHATSAPP",
+              "SMS"
+            ]
+          },
+          "creadoEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "pacienteId",
+          "profesionalId",
+          "especialidadId",
+          "fechaHoraInicio",
+          "fechaHoraFin",
+          "estado"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string"
+          },
+          "mensaje": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "codigo",
+          "mensaje"
+        ]
+      }
+    }
+  }
+}

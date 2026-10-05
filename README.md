@@ -98,15 +98,8 @@ docker compose down
 
 ## Documentación de la API (Swagger)
 
-Para visualizar el contrato de la API de forma interactiva:
+La documentación interactiva se sirve directamente desde el backend. Para verla abri en el navegador:
 
-```bash
-npx swagger-ui-watcher docs/openapi.yaml
-```
+http://localhost:3000/api-docs
 
-> **Nota:** el comando asume que estás parado en la raíz del proyecto. Si ejecutás el comando estando dentro de la carpeta `docs/`, usá la ruta relativa sin el prefijo:
-> ```bash
-> npx swagger-ui-watcher openapi.yaml
-> ```
-
-Esto levanta un servidor local con la documentación completa de los endpoints, schemas y ejemplos de request/response. Se actualiza automáticamente al guardar cambios en el archivo. Para detener el servidor, `Ctrl + C`.
+Ahí vas a encontrar la documentación completa de los endpoints, schemas y ejemplos de request/response.

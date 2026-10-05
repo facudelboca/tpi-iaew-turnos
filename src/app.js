@@ -4,9 +4,10 @@ const { connectDb } = require('./db');
 
 const app = express();
 const port = process.env.PORT || 3000;
-
+const swaggerUi = require("swagger-ui-express");
+const openapiSpec = require("../docs/openapi.json");
 app.use(express.json());
-
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 // Endpoint base / placeholder
 app.get('/', (req, res) => {
   res.json({
@@ -33,6 +34,7 @@ if (require.main === module) {
     .then(() => {
       app.listen(port, () => {
         console.log(`API placeholder escuchando en http://localhost:${port}`);
+          console.log(`Docs en http://localhost:${port}/api-docs`);
       });
     })
     .catch((error) => {
