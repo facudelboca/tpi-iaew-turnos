@@ -103,3 +103,5 @@ La documentación interactiva se sirve directamente desde el backend. Para verla
 http://localhost:3000/api-docs
 
 Ahí vas a encontrar la documentación completa de los endpoints, schemas y ejemplos de request/response.
+
+`**Ultimo Commit**: <626e875767578c762500d28e2efcbb6c0cec4c80>`
