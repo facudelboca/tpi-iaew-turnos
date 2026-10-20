@@ -90,4 +90,18 @@ docker compose down
   - [`02_bd.md`](./docs/adr/02_bd.md): PostgreSQL y modelo relacional para garantizar integridad referencial y atomicidad en reservas.
   - [`03_seguridad.md`](./docs/adr/03_seguridad.md): Auth0 con OAuth2 + JWT y RBAC con scopes granulares.
   - [`04_estilo_api.md`](./docs/adr/04_estilo_api.md): REST para transacciones y CRUD + WebSockets de solo lectura para agenda en vivo.
+- **Diagramas C4:** En la carpeta `docs/Diagramas_C4/`:
+  - `01_C4_Contexto`: el sistema y sus actores externos (Auth0, Sistema de Notificaciones).
+  - `02_C4_Contenedores`: API REST (con WebSocket de solo lectura), PostgreSQL, RabbitMQ y Worker.
+  - `03_C4_componentes`: componentes internos del container API REST.
 - **Contrato OpenAPI 3.1:** En [`docs/openapi.yaml`](./docs/openapi.yaml).
+
+## Documentación de la API (Swagger)
+
+La documentación interactiva se sirve directamente desde el backend. Para verla abri en el navegador:
+
+http://localhost:3000/api-docs
+
+Ahí vas a encontrar la documentación completa de los endpoints, schemas y ejemplos de request/response.
+
+`**Ultimo Commit**: <626e875767578c762500d28e2efcbb6c0cec4c80>`

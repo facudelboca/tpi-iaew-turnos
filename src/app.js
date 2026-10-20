@@ -7,14 +7,18 @@ const { NotFoundError } = require('./errors/AppError');
 
 const app = express();
 const port = process.env.PORT || 3000;
-
+const swaggerUi = require("swagger-ui-express");
+const openapiSpec = require("../docs/openapi.json");
 app.use(express.json());
+// Documentación interactiva Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 // Endpoint base / información del servicio
 app.get('/', (req, res) => {
   res.json({
     mensaje: 'API de Reserva de Turnos de Salud (IAEW 2026)',
     version: '1.0.0',
+    documentacion: '/api-docs',
     endpoints: '/api/v1'
   });
 });
@@ -48,6 +52,7 @@ if (require.main === module) {
     .then(() => {
       app.listen(port, () => {
         console.log(`API de Turnos escuchando en http://localhost:${port}`);
+        console.log(`Documentación Swagger interactiva en http://localhost:${port}/api-docs`);
       });
     })
     .catch((error) => {
