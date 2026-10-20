@@ -9,3 +9,7 @@ dist/
 coverage/
 .idea/
 .vscode/
+
+# Documentos internos de guía y planificación
+TPI_REFERENCIA_DOMINIO_3.md
+PLAN_DESARROLLO_PASO_A_PASO.md

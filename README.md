@@ -69,7 +69,7 @@ docker compose down
 
 2. **Instalar dependencias:**
    ```bash
-   npm install
+   npm ci
    ```
 
 3. **Cargar datos iniciales (Seed):**

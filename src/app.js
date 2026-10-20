@@ -1,17 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const { connectDb } = require('./db');
+const routes = require('./routes');
+const errorHandler = require('./middlewares/errorHandler');
+const { NotFoundError } = require('./errors/AppError');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Endpoint base / placeholder
+// Endpoint base / información del servicio
 app.get('/', (req, res) => {
   res.json({
     mensaje: 'API de Reserva de Turnos de Salud (IAEW 2026)',
-    estado: 'Esqueleto inicial en ejecución'
+    version: '1.0.0',
+    endpoints: '/api/v1'
   });
 });
 
@@ -25,6 +29,17 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Rutas principales de la API v1
+app.use('/api/v1', routes);
+
+// Manejador de rutas no encontradas (404)
+app.use((req, res, next) => {
+  next(new NotFoundError(`La ruta '${req.method} ${req.originalUrl}' no existe en este servidor`, 'RUTA_NO_ENCONTRADA'));
+});
+
+// Middleware centralizado de errores
+app.use(errorHandler);
+
 if (require.main === module) {
   // Cargar modelos y asociaciones
   require('./models');
@@ -32,7 +47,7 @@ if (require.main === module) {
   connectDb()
     .then(() => {
       app.listen(port, () => {
-        console.log(`API placeholder escuchando en http://localhost:${port}`);
+        console.log(`API de Turnos escuchando en http://localhost:${port}`);
       });
     })
     .catch((error) => {
