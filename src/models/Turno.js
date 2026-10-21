@@ -92,6 +92,17 @@ const Turno = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
       field: 'motivo_cancelacion'
+    },
+    idempotencyKey: {
+      type: DataTypes.STRING(128),
+      allowNull: true,
+      unique: true,
+      field: 'idempotency_key'
+    },
+    eventoPublicado: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      field: 'evento_publicado'
     }
   },
   {

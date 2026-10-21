@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const turnoController = require('../controllers/turnoController');
 const { validateBody, validateIntegerId } = require('../middlewares/validate');
+const { requireScope } = require('../middlewares/auth');
 
 const reservaTurnoSchema = {
   pacienteId: { required: true },
@@ -20,11 +21,10 @@ const reservaTurnoSchema = {
   }
 };
 
-// Rutas de turnos
-router.post('/', validateBody(reservaTurnoSchema), turnoController.reservar);
-router.get('/', turnoController.listar);
-router.get('/:id', validateIntegerId('id'), turnoController.obtenerPorId);
-router.delete('/:id', validateIntegerId('id'), turnoController.cancelar);
-router.patch('/:id/cancelar', validateIntegerId('id'), turnoController.cancelar);
+router.post('/', requireScope('write:turnos'), validateBody(reservaTurnoSchema), turnoController.reservar);
+router.get('/', requireScope('read:turnos'), turnoController.listar);
+router.get('/:id', requireScope('read:turnos'), validateIntegerId('id'), turnoController.obtenerPorId);
+router.delete('/:id', requireScope('cancel:turnos'), validateIntegerId('id'), turnoController.cancelar);
+router.patch('/:id/cancelar', requireScope('cancel:turnos'), validateIntegerId('id'), turnoController.cancelar);
 
 module.exports = router;

@@ -69,6 +69,19 @@ CREATE TABLE IF NOT EXISTS turnos (
     recordatorio_enviado BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_recordatorio TIMESTAMP WITH TIME ZONE,
     motivo_cancelacion TEXT,
+    idempotency_key VARCHAR(128) UNIQUE,
+    evento_publicado JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Tabla Eventos Procesados (Deduplicación asincrónica en Worker)
+CREATE TABLE IF NOT EXISTS eventos_procesados (
+    id SERIAL PRIMARY KEY,
+    event_id VARCHAR(64) NOT NULL UNIQUE,
+    type VARCHAR(64) NOT NULL,
+    turno_id INTEGER NOT NULL REFERENCES turnos(id) ON DELETE CASCADE,
+    procesado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -79,3 +92,4 @@ CREATE INDEX IF NOT EXISTS idx_turnos_profesional_fecha_estado
 
 CREATE INDEX IF NOT EXISTS idx_turnos_paciente_fecha 
     ON turnos(paciente_id, fecha_hora_inicio);
+

@@ -39,8 +39,7 @@ if (databaseUrl) {
 async function connectDb() {
   await sequelize.authenticate();
   console.log('Conexión a PostgreSQL establecida exitosamente');
-  // Sincronizar esquemas (en desarrollo/esqueleto inicial)
-  await sequelize.sync();
+  await sequelize.sync({ alter: true });
   console.log('Modelos sincronizados con la base de datos');
 }
 

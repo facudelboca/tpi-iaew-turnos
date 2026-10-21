@@ -23,13 +23,23 @@ app.get('/', (req, res) => {
   });
 });
 
-// Endpoint de Health Check
+const { validateAccessToken } = require('./middlewares/auth');
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'iaew-turnos-api',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/token-info', validateAccessToken, (req, res) => {
+  res.json({
+    issuer: req.auth.payload.iss,
+    audience: req.auth.payload.aud,
+    subject: req.auth.payload.sub,
+    scopes: req.auth.payload.scope
   });
 });
 

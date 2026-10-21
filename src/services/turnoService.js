@@ -9,6 +9,8 @@ const {
 } = require('../models');
 const { parseFechaHora } = require('../utils/dateUtils');
 const { NotFoundError, ConflictError, BadRequestError } = require('../errors/AppError');
+const crypto = require('crypto');
+const { publicarTurnoReservado } = require('../lib/rabbit');
 
 /**
  * Flujo Multi-Paso Transaccional de Reserva de Turno (ACID)
@@ -17,7 +19,7 @@ const { NotFoundError, ConflictError, BadRequestError } = require('../errors/App
  * 3. En una transacción en PostgreSQL, verifica y bloquea solapamiento de horarios.
  * 4. Inserta el turno confirmado y efectúa COMMIT.
  */
-async function reservarTurno(datos) {
+async function reservarTurno(datos, idempotencyKey) {
   const {
     pacienteId,
     profesionalId,
@@ -27,6 +29,38 @@ async function reservarTurno(datos) {
     motivoConsulta,
     canalNotificacion
   } = datos;
+
+  if (idempotencyKey) {
+    const turnoExistente = await Turno.findOne({
+      where: { idempotencyKey },
+      include: [
+        { model: Paciente, as: 'paciente', attributes: ['id', 'nombre', 'apellido', 'dni', 'email', 'telefono'] },
+        { model: Profesional, as: 'profesional', attributes: ['id', 'nombre', 'apellido', 'matricula', 'email'] },
+        { model: Especialidad, as: 'especialidad', attributes: ['id', 'nombre', 'duracionMinutosTurno'] }
+      ]
+    });
+
+    if (turnoExistente) {
+      const match = Number(turnoExistente.pacienteId) === Number(pacienteId) &&
+                    Number(turnoExistente.profesionalId) === Number(profesionalId);
+      if (match) {
+        return {
+          replayed: true,
+          data: {
+            ...turnoExistente.toJSON(),
+            turno: turnoExistente,
+            evento: turnoExistente.eventoPublicado,
+            idempotencia: { key: idempotencyKey, replayed: true }
+          }
+        };
+      }
+
+      throw new ConflictError(
+        'La clave de idempotencia ya fue usada con datos de reserva distintos',
+        'IDEMPOTENCY_KEY_MISMATCH'
+      );
+    }
+  }
 
   // Paso 1: Validación de Paciente
   const paciente = await Paciente.findByPk(pacienteId);
@@ -116,7 +150,14 @@ async function reservarTurno(datos) {
       );
     }
 
-    // Creación atómica del turno
+    const evento = {
+      eventId: crypto.randomUUID(),
+      type: 'turno.reservado',
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      data: { turnoId: null }
+    };
+
     const nuevoTurno = await Turno.create(
       {
         pacienteId: paciente.id,
@@ -127,27 +168,60 @@ async function reservarTurno(datos) {
         motivoConsulta: motivoConsulta || null,
         estado: 'CONFIRMADO',
         canalNotificacion: canalNotificacion ? String(canalNotificacion).toUpperCase() : 'EMAIL',
-        recordatorioEnviado: false
+        recordatorioEnviado: false,
+        idempotencyKey: idempotencyKey || null,
+        eventoPublicado: evento
       },
       { transaction: t }
     );
 
+    evento.data.turnoId = nuevoTurno.id;
+    evento.occurredAt = nuevoTurno.createdAt ? nuevoTurno.createdAt.toISOString() : evento.occurredAt;
+    nuevoTurno.eventoPublicado = evento;
+    await nuevoTurno.save({ transaction: t });
+
     await t.commit();
 
-    // Recuperar turno completo con relaciones para responder al cliente
-    return await Turno.findByPk(nuevoTurno.id, {
+    const turnoCompleto = await Turno.findByPk(nuevoTurno.id, {
       include: [
         { model: Paciente, as: 'paciente', attributes: ['id', 'nombre', 'apellido', 'dni', 'email', 'telefono'] },
         { model: Profesional, as: 'profesional', attributes: ['id', 'nombre', 'apellido', 'matricula', 'email'] },
         { model: Especialidad, as: 'especialidad', attributes: ['id', 'nombre', 'duracionMinutosTurno'] }
       ]
     });
+
+    try {
+      await publicarTurnoReservado(evento);
+    } catch (error) {
+      console.error('No se pudo publicar el evento en RabbitMQ:', error.message);
+    }
+
+    const resultado = turnoCompleto.toJSON();
+    return {
+      replayed: false,
+      data: {
+        ...resultado,
+        turno: resultado,
+        evento,
+        idempotencia: { key: idempotencyKey, replayed: false }
+      }
+    };
   } catch (error) {
     if (t && !t.finished) {
       await t.rollback();
     }
+    if (error?.name === 'SequelizeUniqueConstraintError') {
+      const isIdempotencyCol = error.errors?.some(e => e.path === 'idempotency_key' || e.path === 'idempotencyKey');
+      if (isIdempotencyCol) {
+        throw new ConflictError(
+          'La clave de idempotencia ya fue usada en otro turno',
+          'IDEMPOTENCY_KEY_REUSED'
+        );
+      }
+    }
     throw error;
   }
+
 }
 
 /**

@@ -28,9 +28,23 @@ class BadRequestError extends AppError {
   }
 }
 
+class UnauthorizedError extends AppError {
+  constructor(mensaje = 'No autorizado. Se requiere un token o credencial válida.', codigo = 'NO_AUTORIZADO', detalles = []) {
+    super(mensaje, codigo, 401, detalles);
+  }
+}
+
+class ForbiddenError extends AppError {
+  constructor(mensaje = 'Acceso denegado. Permisos o scopes insuficientes.', codigo = 'ACCESO_DENEGADO', detalles = []) {
+    super(mensaje, codigo, 403, detalles);
+  }
+}
+
 module.exports = {
   AppError,
   NotFoundError,
   ConflictError,
-  BadRequestError
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError
 };

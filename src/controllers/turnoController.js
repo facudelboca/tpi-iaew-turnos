@@ -1,9 +1,28 @@
 const turnoService = require('../services/turnoService');
+const { validateIdempotencyKey } = require('../lib/idempotency');
 
 async function reservar(req, res, next) {
   try {
-    const turno = await turnoService.reservarTurno(req.body);
-    res.status(201).json(turno);
+    const key = req.header('Idempotency-Key');
+    const invalidKey = validateIdempotencyKey(key);
+    if (invalidKey) {
+      return res.status(400).json({
+        error: invalidKey.error,
+        code: invalidKey.code,
+        retryable: false,
+        action: 'Enviar una clave válida y estable por operación',
+        details: invalidKey.details
+      });
+    }
+
+    const resultado = await turnoService.reservarTurno(req.body, key);
+    if (resultado.replayed) {
+      res.set('Idempotency-Replayed', 'true');
+      return res.status(200).json(resultado.data);
+    }
+
+    res.set('Idempotency-Replayed', 'false');
+    return res.status(201).json(resultado.data);
   } catch (error) {
     next(error);
   }

@@ -4,6 +4,7 @@ const Especialidad = require('./Especialidad');
 const Profesional = require('./Profesional');
 const ProfesionalDiaAtencion = require('./ProfesionalDiaAtencion');
 const Turno = require('./Turno');
+const EventoProcesado = require('./EventoProcesado');
 
 // Relación 1:N Especialidad -> Profesional
 Especialidad.hasMany(Profesional, {
@@ -60,5 +61,6 @@ module.exports = {
   Especialidad,
   Profesional,
   ProfesionalDiaAtencion,
-  Turno
+  Turno,
+  EventoProcesado
 };

@@ -56,7 +56,20 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  // 6. Errores no controlados / 500
+  // 6. Errores de autenticación y autorización de express-oauth2-jwt-bearer
+  if (err.status === 401 || err.statusCode === 401 || err.name === 'UnauthorizedError' || err.name === 'InvalidTokenError') {
+    return res.status(401).json({
+      error: 'Token ausente, inválido o expirado'
+    });
+  }
+
+  if (err.status === 403 || err.statusCode === 403 || err.name === 'InsufficientScopeError') {
+    return res.status(403).json({
+      error: 'Permisos insuficientes para ejecutar la acción'
+    });
+  }
+
+  // 7. Errores no controlados / 500
   console.error('[UNHANDLED_ERROR]', err);
   return res.status(500).json({
     codigo: 'ERROR_INTERNO',
