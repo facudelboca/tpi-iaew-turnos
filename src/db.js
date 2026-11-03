@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
+const logger = require('./lib/logger');
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -38,9 +39,9 @@ if (databaseUrl) {
 
 async function connectDb() {
   await sequelize.authenticate();
-  console.log('Conexión a PostgreSQL establecida exitosamente');
+  logger.info('Conexion a PostgreSQL establecida exitosamente');
   await sequelize.sync({ alter: true });
-  console.log('Modelos sincronizados con la base de datos');
+  logger.info('Modelos sincronizados con la base de datos');
 }
 
 module.exports = { sequelize, connectDb };

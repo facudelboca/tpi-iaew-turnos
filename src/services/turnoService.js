@@ -12,6 +12,12 @@ const { NotFoundError, ConflictError, BadRequestError } = require('../errors/App
 const crypto = require('crypto');
 const { publicarTurnoReservado } = require('../lib/rabbit');
 const { broadcastAgendaEvent } = require('../lib/websocket');
+const { getCorrelationId } = require('../lib/context');
+const {
+  turnosReservadosTotal,
+  turnosSolapadosTotal,
+  turnosCanceladosTotal
+} = require('../lib/metrics');
 
 async function reservarTurno(datos, idempotencyKey) {
   const {
@@ -129,6 +135,7 @@ async function reservarTurno(datos, idempotencyKey) {
 
     if (solapamientos > 0) {
       await t.rollback();
+      turnosSolapadosTotal.inc();
       throw new ConflictError(
         'El profesional ya tiene un turno reservado en ese horario',
         'TURNO_OCUPADO',
@@ -167,6 +174,7 @@ async function reservarTurno(datos, idempotencyKey) {
     await nuevoTurno.save({ transaction: t });
 
     await t.commit();
+    turnosReservadosTotal.inc();
 
     const turnoCompleto = await Turno.findByPk(nuevoTurno.id, {
       include: [
@@ -176,8 +184,10 @@ async function reservarTurno(datos, idempotencyKey) {
       ]
     });
 
+    const correlationId = getCorrelationId();
+
     try {
-      await publicarTurnoReservado(evento);
+      await publicarTurnoReservado(evento, correlationId);
     } catch (error) {
       console.error('No se pudo publicar el evento en RabbitMQ:', error.message);
     }
@@ -250,6 +260,7 @@ async function cancelarTurno(id, motivoCancelacion) {
   turno.estado = 'CANCELADO';
   turno.motivoCancelacion = motivoCancelacion || 'Cancelado por solicitud del paciente o administración';
   await turno.save();
+  turnosCanceladosTotal.inc();
 
   try {
     broadcastAgendaEvent('TURNO_CANCELADO', {

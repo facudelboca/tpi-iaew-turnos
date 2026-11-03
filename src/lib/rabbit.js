@@ -46,16 +46,28 @@ async function confirmedPublish(ch, exchange, routingKey, content, options) {
   await ch.waitForConfirms();
 }
 
-async function publicarTurnoReservado(evento) {
+async function publicarTurnoReservado(evento, correlationId) {
   const { connection, channel } = await crearCanal();
+  const corrId = correlationId || evento.correlationId || null;
 
   try {
+    const payload = {
+      ...evento,
+      ...(corrId ? { correlationId: corrId } : {})
+    };
+
     await confirmedPublish(
       channel,
       EXCHANGE,
       ROUTING_KEY,
-      Buffer.from(JSON.stringify(evento)),
-      { contentType: 'application/json', persistent: true }
+      Buffer.from(JSON.stringify(payload)),
+      {
+        contentType: 'application/json',
+        persistent: true,
+        headers: {
+          ...(corrId ? { 'x-correlation-id': corrId } : {})
+        }
+      }
     );
   } finally {
     await channel.close();

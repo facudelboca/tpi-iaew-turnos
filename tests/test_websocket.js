@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { requireEnv } = require('./helpers');
 const { WebSocket } = require('ws');
 const { spawn } = require('child_process');
 
@@ -92,8 +93,8 @@ async function runWebSocketTest() {
     console.log('   PONG recibido:', JSON.stringify(pongMsg));
 
     console.log('\n4. Obteniendo token de Auth0...');
-    const clientId = 'k5zaa6rg7mXGzbNJYqmThdSA80PKB9tj';
-    const clientSecret = '8s5xt57f0iYGAQHg8_JA8vbc5ddekz4e8ZvcEffxqlZP7ib4ZjlEfj7aM_25nvCq';
+    const clientId = requireEnv('AUTH0_TEST_CLIENT_ID');
+    const clientSecret = requireEnv('AUTH0_TEST_CLIENT_SECRET');
 
     const tokenRes = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}oauth/token`, {
       method: 'POST',
