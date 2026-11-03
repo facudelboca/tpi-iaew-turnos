@@ -15,7 +15,9 @@
     "test:dlq": "node tests/test_retry_dlq.js",
     "test:ws": "node tests/test_websocket.js",
     "test:docs": "node tests/test_docs.js",
-    "test:obs": "node tests/test_observability.js"
+    "test:obs": "node tests/test_observability.js",
+    "test:postman": "node tests/test_postman.js",
+    "test:load": "node tests/test_load_concurrency.js"
   },
   "dependencies": {
     "amqplib": "^2.2.0",
@@ -30,6 +32,7 @@
     "ws": "^8.22.1"
   },
   "devDependencies": {
+    "newman": "^6.2.3",
     "nodemon": "^3.1.9"
   }
 }

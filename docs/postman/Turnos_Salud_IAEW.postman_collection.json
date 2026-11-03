@@ -1,0 +1,658 @@
+{
+  "info": {
+    "_postman_id": "a9b13c72-91f4-4e20-8041-3b7498c19a92",
+    "name": "Turnos_Salud_IAEW",
+    "description": "Coleccion de pruebas de integracion automatizada para la API del Sistema de Turnos de Salud (TPI IAEW 2026). Cubre autenticacion Auth0 M2M, contratos OpenAPI, API Keys, idempotencia, condiciones de error y observabilidad.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Auth0 Token M2M",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Retorna access_token Bearer\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.access_token).to.be.a(\"string\");",
+              "    pm.expect(jsonData.token_type).to.eql(\"Bearer\");",
+              "    pm.environment.set(\"accessToken\", jsonData.access_token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"{{auth0ClientId}}\",\n  \"client_secret\": \"{{auth0ClientSecret}}\",\n  \"audience\": \"{{auth0Audience}}\",\n  \"grant_type\": \"client_credentials\"\n}"
+        },
+        "url": {
+          "raw": "{{auth0Issuer}}oauth/token",
+          "host": [
+            "{{auth0Issuer}}oauth"
+          ],
+          "path": [
+            "token"
+          ]
+        }
+      }
+    },
+    {
+      "name": "02 - Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Servicio reporta estado OK\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status.toLowerCase()).to.eql(\"ok\");",
+              "    pm.expect(jsonData.timestamp).to.be.a(\"string\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 - Seguridad API Key - Rechazo Sin Clave",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 401 Unauthorized\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "pm.test(\"Error descriptivo de autenticacion\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error.toLowerCase()).to.include(\"api key\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/sync-especialidades",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "sync-especialidades"
+          ]
+        }
+      }
+    },
+    {
+      "name": "04 - Seguridad API Key - Autorizacion Exitosa",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Operacion administrativa confirmada\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.mensaje).to.be.a(\"string\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/sync-especialidades",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "sync-especialidades"
+          ]
+        }
+      }
+    },
+    {
+      "name": "05 - Obtener Profesionales y Extraer ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Lista de profesionales no vacia\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    const lista = jsonData.datos || jsonData;",
+              "    pm.expect(lista.length).to.be.above(0);",
+              "    pm.environment.set(\"profesionalId\", lista[0].id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/profesionales",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "profesionales"
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 - Crear Paciente con Datos Dinamicos",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const sufijo = Date.now().toString().slice(-6);",
+              "pm.environment.set(\"pacienteDni\", String(30000000 + Math.floor(Math.random() * 50000000)));",
+              "pm.environment.set(\"pacienteEmail\", \"paciente\" + sufijo + \"@testsalud.com\");"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Retorna paciente creado con ID\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.id).to.be.a(\"number\");",
+              "    pm.environment.set(\"pacienteId\", jsonData.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Carlos\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"{{pacienteDni}}\",\n  \"email\": \"{{pacienteEmail}}\",\n  \"telefono\": \"3514001122\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/pacientes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "pacientes"
+          ]
+        }
+      }
+    },
+    {
+      "name": "07 - Reservar Turno - Flujo Feliz",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const runId = Date.now() + Math.floor(Math.random() * 100000);",
+              "pm.environment.set(\"idempotencyKey\", \"postman-run-\" + runId);",
+              "const d = new Date();",
+              "const offsetWeeks = 50 + Math.floor(Math.random() * 50);",
+              "d.setUTCDate(d.getUTCDate() + offsetWeeks * 7);",
+              "while (d.getUTCDay() !== 1) {",
+              "    d.setUTCDate(d.getUTCDate() + 1);",
+              "}",
+              "const y = d.getUTCFullYear();",
+              "const m = String(d.getUTCMonth() + 1).padStart(2, '0');",
+              "const dia = String(d.getUTCDate()).padStart(2, '0');",
+              "const inicio = `${y}-${m}-${dia}T09:00:00.000Z`;",
+              "const fin = `${y}-${m}-${dia}T09:30:00.000Z`;",
+              "pm.environment.set(\"slotInicio\", inicio);",
+              "pm.environment.set(\"slotFin\", fin);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Retorna header X-Correlation-ID\", function () {",
+              "    pm.expect(pm.response.headers.has(\"X-Correlation-ID\")).to.be.true;",
+              "});",
+              "pm.test(\"No es respuesta reproducida\", function () {",
+              "    pm.expect(pm.response.headers.get(\"Idempotency-Replayed\")).to.not.eql(\"true\");",
+              "});",
+              "pm.test(\"Turno reservado correctamente\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.id).to.be.a(\"number\");",
+              "    pm.expect(jsonData.estado).to.eql(\"CONFIRMADO\");",
+              "    pm.environment.set(\"turnoId\", jsonData.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"profesionalId\": {{profesionalId}},\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\",\n  \"motivoConsulta\": \"Control semestral\",\n  \"canalNotificacion\": \"EMAIL\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "08 - Idempotencia - Reenvio Misma Clave",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Header Idempotency-Replayed es true\", function () {",
+              "    pm.expect(pm.response.headers.get(\"Idempotency-Replayed\")).to.eql(\"true\");",
+              "});",
+              "pm.test(\"Devuelve el mismo ID del turno original\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.id).to.eql(pm.environment.get(\"turnoId\"));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"profesionalId\": {{profesionalId}},\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\",\n  \"motivoConsulta\": \"Control semestral\",\n  \"canalNotificacion\": \"EMAIL\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "09 - Conflicto Solapamiento - Mismo Horario",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 409 Conflict\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "pm.test(\"Error tipificado TURNO_OCUPADO\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    const codigo = jsonData.code || jsonData.codigo || jsonData.error;",
+              "    pm.expect(codigo).to.include(\"TURNO_OCUPADO\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "postman-conflict-key-{{$timestamp}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"profesionalId\": {{profesionalId}},\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\",\n  \"motivoConsulta\": \"Consulta superpuesta\",\n  \"canalNotificacion\": \"SMS\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10 - Validacion Rechazo Rango Invalido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 400 Bad Request\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"profesionalId\": {{profesionalId}},\n  \"fechaHoraInicio\": \"{{slotFin}}\",\n  \"fechaHoraFin\": \"{{slotInicio}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "11 - Rechazo Token Invalido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 401 Unauthorized\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer token-falso-invalido"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": {{pacienteId}},\n  \"profesionalId\": {{profesionalId}},\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "12 - Cancelar Turno",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Estado actualizado a CANCELADO\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.estado).to.eql(\"CANCELADO\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos/{{turnoId}}/cancelar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos",
+            "{{turnoId}}",
+            "cancelar"
+          ]
+        }
+      }
+    },
+    {
+      "name": "13 - Rechazo Cancelacion Duplicada",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 400 Bad Request\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "pm.test(\"Error tipificado CANCELACION_INVALIDA\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    const codigo = jsonData.code || jsonData.codigo || jsonData.error;",
+              "    pm.expect(codigo).to.include(\"CANCELACION_INVALIDA\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos/{{turnoId}}/cancelar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos",
+            "{{turnoId}}",
+            "cancelar"
+          ]
+        }
+      }
+    },
+    {
+      "name": "14 - Observabilidad y Telemetria",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Metricas computan percentiles y peticiones\", function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData.totalRequests).to.be.a(\"number\");",
+              "    pm.expect(jsonData.p95Ms).to.be.a(\"number\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/metrics-summary",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "metrics-summary"
+          ]
+        }
+      }
+    }
+  ]
+}

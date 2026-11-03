@@ -123,6 +123,11 @@ async function reservarTurno(datos, idempotencyKey) {
   const t = await sequelize.transaction();
 
   try {
+    await Profesional.findByPk(profesional.id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
     const solapamientos = await Turno.count({
       where: {
         profesionalId: profesional.id,
