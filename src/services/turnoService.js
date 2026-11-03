@@ -11,14 +11,8 @@ const { parseFechaHora } = require('../utils/dateUtils');
 const { NotFoundError, ConflictError, BadRequestError } = require('../errors/AppError');
 const crypto = require('crypto');
 const { publicarTurnoReservado } = require('../lib/rabbit');
+const { broadcastAgendaEvent } = require('../lib/websocket');
 
-/**
- * Flujo Multi-Paso Transaccional de Reserva de Turno (ACID)
- * 1. Valida existencia y estado activo de Paciente, Profesional y Especialidad.
- * 2. Valida la agenda del profesional (día y rango horario de atención).
- * 3. En una transacción en PostgreSQL, verifica y bloquea solapamiento de horarios.
- * 4. Inserta el turno confirmado y efectúa COMMIT.
- */
 async function reservarTurno(datos, idempotencyKey) {
   const {
     pacienteId,
@@ -62,13 +56,11 @@ async function reservarTurno(datos, idempotencyKey) {
     }
   }
 
-  // Paso 1: Validación de Paciente
   const paciente = await Paciente.findByPk(pacienteId);
   if (!paciente || !paciente.activo) {
     throw new NotFoundError('No se encontró el paciente indicado', 'PACIENTE_INEXISTENTE');
   }
 
-  // Paso 2: Validación de Profesional y sus agendas
   const profesional = await Profesional.findByPk(profesionalId, {
     include: [
       { model: Especialidad, as: 'especialidad' },
@@ -79,7 +71,6 @@ async function reservarTurno(datos, idempotencyKey) {
     throw new NotFoundError('No se encontró el profesional médico indicado', 'PROFESIONAL_INEXISTENTE');
   }
 
-  // Paso 3: Validación de Especialidad
   const idEsp = especialidadId ? parseInt(especialidadId, 10) : profesional.especialidadId;
   if (idEsp !== profesional.especialidadId) {
     throw new BadRequestError(
@@ -88,7 +79,6 @@ async function reservarTurno(datos, idempotencyKey) {
     );
   }
 
-  // Paso 4: Validación de Fechas e Intervalo
   const inicioParsed = parseFechaHora(fechaHoraInicio);
   const finParsed = parseFechaHora(fechaHoraFin);
 
@@ -104,7 +94,6 @@ async function reservarTurno(datos, idempotencyKey) {
     );
   }
 
-  // Paso 5: Validación de Agenda Médica (Día y Horarios de Atención)
   const agendaDia = profesional.diasAtencion?.find(
     (d) => d.dia.toUpperCase() === inicioParsed.dia.toUpperCase()
   );
@@ -125,12 +114,9 @@ async function reservarTurno(datos, idempotencyKey) {
     );
   }
 
-  // Paso 6: Transacción ACID con control estricto de solapamientos
   const t = await sequelize.transaction();
 
   try {
-    // Control de superposición horaria:
-    // turno.inicio < nuevoFin AND turno.fin > nuevoInicio
     const solapamientos = await Turno.count({
       where: {
         profesionalId: profesional.id,
@@ -196,6 +182,22 @@ async function reservarTurno(datos, idempotencyKey) {
       console.error('No se pudo publicar el evento en RabbitMQ:', error.message);
     }
 
+    try {
+      broadcastAgendaEvent('TURNO_RESERVADO', {
+        turnoId: turnoCompleto.id,
+        pacienteId: turnoCompleto.pacienteId,
+        profesionalId: turnoCompleto.profesionalId,
+        especialidad: turnoCompleto.especialidad ? turnoCompleto.especialidad.nombre : null,
+        paciente: turnoCompleto.paciente ? `${turnoCompleto.paciente.nombre} ${turnoCompleto.paciente.apellido}` : null,
+        profesional: turnoCompleto.profesional ? `${turnoCompleto.profesional.nombre} ${turnoCompleto.profesional.apellido}` : null,
+        fechaHoraInicio: turnoCompleto.fechaHoraInicio,
+        fechaHoraFin: turnoCompleto.fechaHoraFin,
+        estado: turnoCompleto.estado
+      });
+    } catch (wsError) {
+      console.error('No se pudo emitir evento WebSocket:', wsError.message);
+    }
+
     const resultado = turnoCompleto.toJSON();
     return {
       replayed: false,
@@ -221,12 +223,8 @@ async function reservarTurno(datos, idempotencyKey) {
     }
     throw error;
   }
-
 }
 
-/**
- * Cancelación de turno con validación de ciclo de vida
- */
 async function cancelarTurno(id, motivoCancelacion) {
   const turno = await Turno.findByPk(id);
 
@@ -253,12 +251,22 @@ async function cancelarTurno(id, motivoCancelacion) {
   turno.motivoCancelacion = motivoCancelacion || 'Cancelado por solicitud del paciente o administración';
   await turno.save();
 
+  try {
+    broadcastAgendaEvent('TURNO_CANCELADO', {
+      turnoId: turno.id,
+      pacienteId: turno.pacienteId,
+      profesionalId: turno.profesionalId,
+      fechaHoraInicio: turno.fechaHoraInicio,
+      estado: turno.estado,
+      motivoCancelacion: turno.motivoCancelacion
+    });
+  } catch (wsError) {
+    console.error('No se pudo emitir evento WebSocket:', wsError.message);
+  }
+
   return turno;
 }
 
-/**
- * Listar turnos con filtros opcionales
- */
 async function obtenerTurnos(filtros = {}) {
   const where = {};
 
@@ -293,9 +301,6 @@ async function obtenerTurnos(filtros = {}) {
   });
 }
 
-/**
- * Obtener detalle de turno por ID
- */
 async function obtenerTurnoPorId(id) {
   const turno = await Turno.findByPk(id, {
     include: [

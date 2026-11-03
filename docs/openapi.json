@@ -2,32 +2,48 @@
   "openapi": "3.1.0",
   "info": {
     "title": "API de Reserva de Turnos de Salud",
-    "description": "API para administrar profesionales, pacientes y turnos de salud, evitando solapamientos y disparando recordatorios asincrónicos vía RabbitMQ (evento turno.reservado).\n",
+    "description": "API REST para administrar profesionales, especialidades, pacientes y turnos de salud, evitando solapamientos horarios de forma transaccional (ACID) y despachando recordatorios asincrónicos vía RabbitMQ.\n\n### Canal en Tiempo Real:\n- **WebSocket de Agenda:** `ws://localhost:3000/ws/agenda` emite eventos en vivo de reservas (`TURNO_RESERVADO`) y cancelaciones (`TURNO_CANCELADO`).",
     "version": "1.0.0"
   },
   "servers": [
     {
-      "url": "https://api.turnos-salud.local/v1",
-      "description": "Servidor de desarrollo"
+      "url": "http://localhost:3000/api/v1",
+      "description": "Servidor local de desarrollo"
+    },
+    {
+      "url": "/api/v1",
+      "description": "Ruta relativa"
     }
   ],
   "tags": [
     {
-      "name": "Turnos"
+      "name": "Turnos",
+      "description": "Operaciones transaccionales de reserva, consulta y cancelación de turnos"
     },
     {
-      "name": "Pacientes"
+      "name": "Pacientes",
+      "description": "Gestión y alta de pacientes"
     },
     {
-      "name": "Profesionales"
+      "name": "Profesionales",
+      "description": "Consulta de profesionales médicos y sus agendas de atención"
     },
     {
-      "name": "Especialidades"
+      "name": "Especialidades",
+      "description": "Catálogo de especialidades médicas"
+    },
+    {
+      "name": "Administración",
+      "description": "Endpoints administrativos asegurados con API Key"
+    },
+    {
+      "name": "Monitoreo",
+      "description": "Healthcheck y estado del servicio"
     }
   ],
   "security": [
     {
-      "auth0": []
+      "bearerAuth": []
     }
   ],
   "paths": {
@@ -36,8 +52,11 @@
         "tags": [
           "Turnos"
         ],
-        "summary": "Listar turnos",
+        "summary": "Listar turnos con filtros opcionales",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "auth0": [
               "read:turnos"
@@ -46,16 +65,39 @@
         ],
         "parameters": [
           {
-            "name": "profesional_id",
+            "name": "profesionalId",
             "in": "query",
+            "description": "Filtrar por ID de profesional médico",
             "schema": {
               "type": "integer"
             }
           },
           {
+            "name": "pacienteId",
+            "in": "query",
+            "description": "Filtrar por ID de paciente",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtrar por estado del turno",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDIENTE",
+                "CONFIRMADO",
+                "CANCELADO",
+                "COMPLETADO"
+              ]
+            }
+          },
+          {
             "name": "fecha",
             "in": "query",
-            "description": "Filtra turnos cuyo fecha_hora_inicio caiga en este día (YYYY-MM-DD)",
+            "description": "Filtrar turnos de un día específico (formato YYYY-MM-DD)",
             "schema": {
               "type": "string",
               "format": "date"
@@ -64,7 +106,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Lista de turnos",
+            "description": "Lista de turnos recuperada exitosamente",
             "content": {
               "application/json": {
                 "schema": {
@@ -75,6 +117,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "No autenticado o token ausente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Token sin el scope read:turnos requerido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -82,12 +144,27 @@
         "tags": [
           "Turnos"
         ],
-        "summary": "Reservar un turno (valida disponibilidad, bloquea y confirma en una sola operación)",
+        "summary": "Reservar turno (transacción multi-paso ACID con idempotencia)",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "auth0": [
               "write:turnos"
             ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Clave única de idempotencia para prevenir duplicados ante reintentos de red",
+            "schema": {
+              "type": "string"
+            },
+            "example": "reserva-abc-12345"
           }
         ],
         "requestBody": {
@@ -98,43 +175,86 @@
                 "$ref": "#/components/schemas/TurnoInput"
               },
               "example": {
-                "pacienteId": 101,
-                "profesionalId": 205,
-                "especialidadId": 3,
-                "fechaHoraInicio": "2026-10-02T14:30:00Z",
-                "fechaHoraFin": "2026-10-02T15:00:00Z",
-                "motivoConsulta": "Control anual",
+                "pacienteId": 1,
+                "profesionalId": 1,
+                "especialidadId": 1,
+                "fechaHoraInicio": "2026-11-20T09:00:00.000Z",
+                "fechaHoraFin": "2026-11-20T09:30:00.000Z",
+                "motivoConsulta": "Control cardiovascular anual",
                 "canalNotificacion": "EMAIL"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Turno confirmado",
+          "200": {
+            "description": "Turno recuperado de forma idempotente (sin duplicación de efectos)",
+            "headers": {
+              "Idempotency-Replayed": {
+                "description": "Indica true al reejecutar con la misma clave de idempotencia",
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Turno"
-                },
-                "example": {
-                  "id": 4821,
-                  "pacienteId": 101,
-                  "profesionalId": 205,
-                  "especialidadId": 3,
-                  "fechaHoraInicio": "2026-10-02T14:30:00Z",
-                  "fechaHoraFin": "2026-10-02T15:00:00Z",
-                  "motivoConsulta": "Control anual",
-                  "estado": "CONFIRMADO",
-                  "recordatorioEnviado": false,
-                  "canalNotificacion": "EMAIL",
-                  "creadoEn": "2026-09-24T18:32:10Z"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Turno confirmado y persistido exitosamente",
+            "headers": {
+              "Idempotency-Replayed": {
+                "description": "Indica false en la primera ejecución",
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de entrada inválidos o inconsistentes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado o token ausente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Token sin el scope write:turnos requerido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           },
           "404": {
-            "description": "Paciente o profesional inexistente",
+            "description": "Paciente, profesional o especialidad no encontrados",
             "content": {
               "application/json": {
                 "schema": {
@@ -148,15 +268,41 @@
             }
           },
           "409": {
-            "description": "Turno ocupado / profesional no disponible en ese horario",
+            "description": "Conflicto por turno ocupado, horario fuera de agenda o colisión de idempotencia",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "codigo": "TURNO_OCUPADO",
-                  "mensaje": "El profesional ya tiene un turno reservado en ese horario"
+                "examples": {
+                  "TurnoOcupado": {
+                    "summary": "Solapamiento con otro turno confirmado",
+                    "value": {
+                      "codigo": "TURNO_OCUPADO",
+                      "mensaje": "El profesional ya tiene un turno reservado en ese horario"
+                    }
+                  },
+                  "ProfesionalNoDisponible": {
+                    "summary": "Fuera de agenda de atención",
+                    "value": {
+                      "codigo": "PROFESIONAL_NO_DISPONIBLE",
+                      "mensaje": "El profesional no atiende los días seleccionados o en ese horario"
+                    }
+                  },
+                  "IdempotencyMismatch": {
+                    "summary": "Clave de idempotencia usada con otro payload",
+                    "value": {
+                      "codigo": "IDEMPOTENCY_KEY_MISMATCH",
+                      "mensaje": "La clave de idempotencia ya fue usada con datos de reserva distintos"
+                    }
+                  },
+                  "IdempotencyReused": {
+                    "summary": "Clave de idempotencia ya vinculada a otro turno",
+                    "value": {
+                      "codigo": "IDEMPOTENCY_KEY_REUSED",
+                      "mensaje": "La clave de idempotencia ya fue usada en otro turno"
+                    }
+                  }
                 }
               }
             }
@@ -169,8 +315,11 @@
         "tags": [
           "Turnos"
         ],
-        "summary": "Obtener un turno por ID",
+        "summary": "Obtener detalle de un turno por ID",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "auth0": [
               "read:turnos"
@@ -184,11 +333,31 @@
         ],
         "responses": {
           "200": {
-            "description": "Turno encontrado",
+            "description": "Detalle del turno encontrado",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope insuficiente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -210,8 +379,10 @@
           "Turnos"
         ],
         "summary": "Cancelar un turno",
-        "description": "Solo el paciente dueño del turno o un Admin pueden cancelarlo (validación de ownership adicional al scope).",
         "security": [
+          {
+            "bearerAuth": []
+          },
           {
             "auth0": [
               "cancel:turnos"
@@ -223,12 +394,45 @@
             "$ref": "#/components/parameters/TurnoId"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "motivoCancelacion": {
+                    "type": "string",
+                    "example": "Solicitado por el paciente"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "204": {
-            "description": "Turno cancelado correctamente"
+          "200": {
+            "description": "Turno cancelado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Cancelación inválida (ej. turno ya cancelado o ya pasó la fecha)",
+            "description": "Cancelación inválida (turno ya cancelado, completado o pasado)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
             "content": {
               "application/json": {
                 "schema": {
@@ -238,7 +442,88 @@
             }
           },
           "403": {
-            "description": "El turno no pertenece al paciente autenticado",
+            "description": "Scope cancel:turnos ausente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Turno no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/turnos/{id}/cancelar": {
+      "patch": {
+        "tags": [
+          "Turnos"
+        ],
+        "summary": "Cancelar un turno (método alternativo PATCH)",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "auth0": [
+              "cancel:turnos"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TurnoId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "motivoCancelacion": {
+                    "type": "string",
+                    "example": "Cancelación administrativa"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Turno cancelado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Turno"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cancelación inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Turno no encontrado",
             "content": {
               "application/json": {
                 "schema": {
@@ -255,14 +540,7 @@
         "tags": [
           "Pacientes"
         ],
-        "summary": "Listar pacientes",
-        "security": [
-          {
-            "auth0": [
-              "admin:profesionales"
-            ]
-          }
-        ],
+        "summary": "Listar pacientes registrados",
         "responses": {
           "200": {
             "description": "Lista de pacientes",
@@ -283,24 +561,53 @@
         "tags": [
           "Pacientes"
         ],
-        "summary": "Registrar un paciente",
+        "summary": "Registrar un nuevo paciente",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PacienteInput"
+              },
+              "example": {
+                "nombre": "Ana",
+                "apellido": "García",
+                "dni": "35123456",
+                "email": "ana.garcia@example.com",
+                "telefono": "+543515551234",
+                "obraSocial": "OSDE",
+                "numeroAfiliado": "OSDE-987654"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Paciente creado",
+            "description": "Paciente registrado exitosamente",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Paciente"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de entrada inválidos o faltantes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "DNI o email ya registrado previamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -331,7 +638,14 @@
             }
           },
           "404": {
-            "description": "Paciente no encontrado"
+            "description": "Paciente no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -341,12 +655,15 @@
         "tags": [
           "Profesionales"
         ],
-        "summary": "Listar profesionales",
-        "security": [
+        "summary": "Listar profesionales médicos",
+        "parameters": [
           {
-            "auth0": [
-              "read:turnos"
-            ]
+            "name": "especialidadId",
+            "in": "query",
+            "description": "Filtrar profesionales por especialidad médica",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -364,32 +681,22 @@
             }
           }
         }
-      },
-      "post": {
+      }
+    },
+    "/profesionales/{id}": {
+      "get": {
         "tags": [
           "Profesionales"
         ],
-        "summary": "Registrar un profesional",
-        "security": [
+        "summary": "Obtener detalle del profesional médico con sus días de atención",
+        "parameters": [
           {
-            "auth0": [
-              "admin:profesionales"
-            ]
+            "$ref": "#/components/parameters/ProfesionalId"
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProfesionalInput"
-              }
-            }
-          }
-        },
         "responses": {
-          "201": {
-            "description": "Profesional creado",
+          "200": {
+            "description": "Detalle del profesional con su agenda",
             "content": {
               "application/json": {
                 "schema": {
@@ -397,45 +704,13 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/profesionales/{id}": {
-      "put": {
-        "tags": [
-          "Profesionales"
-        ],
-        "summary": "Actualizar disponibilidad/datos de un profesional",
-        "security": [
-          {
-            "auth0": [
-              "admin:profesionales"
-            ]
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ProfesionalId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProfesionalInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Profesional actualizado",
+          },
+          "404": {
+            "description": "Profesional no encontrado",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Profesional"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -448,7 +723,7 @@
         "tags": [
           "Especialidades"
         ],
-        "summary": "Listar especialidades disponibles",
+        "summary": "Listar especialidades médicas activas",
         "responses": {
           "200": {
             "description": "Lista de especialidades",
@@ -465,6 +740,85 @@
           }
         }
       }
+    },
+    "/especialidades/{id}": {
+      "get": {
+        "tags": [
+          "Especialidades"
+        ],
+        "summary": "Obtener especialidad por ID",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EspecialidadId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Especialidad encontrada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Especialidad"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Especialidad no encontrada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/sync-especialidades": {
+      "post": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Sincronización administrativa protegida por API Key",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sincronización administrativa exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mensaje": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API Key ausente o inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -475,7 +829,8 @@
         "required": true,
         "schema": {
           "type": "integer"
-        }
+        },
+        "description": "Identificador numérico del turno"
       },
       "PacienteId": {
         "name": "id",
@@ -483,7 +838,8 @@
         "required": true,
         "schema": {
           "type": "integer"
-        }
+        },
+        "description": "Identificador numérico del paciente"
       },
       "ProfesionalId": {
         "name": "id",
@@ -491,21 +847,43 @@
         "required": true,
         "schema": {
           "type": "integer"
-        }
+        },
+        "description": "Identificador numérico del profesional"
+      },
+      "EspecialidadId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Identificador numérico de la especialidad"
       }
     },
     "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access Token JWT emitido por Auth0 con scopes correspondientes"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API Key para endpoints administrativos internos"
+      },
       "auth0": {
         "type": "oauth2",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "https://TU_DOMINIO.auth0.com/authorize",
-            "tokenUrl": "https://TU_DOMINIO.auth0.com/oauth/token",
+            "authorizationUrl": "https://facundodelboca.us.auth0.com/authorize",
+            "tokenUrl": "https://facundodelboca.us.auth0.com/oauth/token",
             "scopes": {
-              "read:turnos": "Ver turnos existentes",
-              "write:turnos": "Crear/reservar turnos",
-              "cancel:turnos": "Cancelar turnos propios",
-              "admin:profesionales": "Administrar profesionales y pacientes"
+              "read:turnos": "Consultar turnos y agendas médicas",
+              "write:turnos": "Crear y confirmar reservas de turnos",
+              "cancel:turnos": "Cancelar turnos existentes",
+              "admin:profesionales": "Administración de profesionales y catálogos"
             }
           }
         }
@@ -634,49 +1012,6 @@
             "type": "string"
           },
           "especialidadId": {
-            "type": "integer",
-            "description": "Especialidad única del profesional (FK a Especialidad)"
-          },
-          "email": {
-            "type": "string",
-            "format": "email"
-          },
-          "telefono": {
-            "type": "string"
-          },
-          "diasAtencion": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DiaAtencion"
-            },
-            "description": "Se administran en /profesionales/{id}/dias-atencion"
-          },
-          "activo": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "nombre",
-          "apellido",
-          "matricula",
-          "especialidadId",
-          "email"
-        ]
-      },
-      "ProfesionalInput": {
-        "type": "object",
-        "properties": {
-          "nombre": {
-            "type": "string"
-          },
-          "apellido": {
-            "type": "string"
-          },
-          "matricula": {
-            "type": "string"
-          },
-          "especialidadId": {
             "type": "integer"
           },
           "email": {
@@ -685,9 +1020,19 @@
           },
           "telefono": {
             "type": "string"
+          },
+          "activo": {
+            "type": "boolean"
+          },
+          "diasAtencion": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiaAtencion"
+            }
           }
         },
         "required": [
+          "id",
           "nombre",
           "apellido",
           "matricula",
@@ -709,14 +1054,16 @@
           },
           "duracionMinutosTurno": {
             "type": "integer",
-            "default": 30,
-            "minimum": 10,
-            "maximum": 120
+            "default": 30
           },
           "activo": {
             "type": "boolean"
           }
-        }
+        },
+        "required": [
+          "id",
+          "nombre"
+        ]
       },
       "TurnoInput": {
         "type": "object",
@@ -733,15 +1080,16 @@
           "fechaHoraInicio": {
             "type": "string",
             "format": "date-time",
-            "example": "2026-10-02T14:30:00Z"
+            "example": "2026-11-20T09:00:00.000Z"
           },
           "fechaHoraFin": {
             "type": "string",
             "format": "date-time",
-            "example": "2026-10-02T15:00:00Z"
+            "example": "2026-11-20T09:30:00.000Z"
           },
           "motivoConsulta": {
-            "type": "string"
+            "type": "string",
+            "example": "Control anual"
           },
           "canalNotificacion": {
             "type": "string",
@@ -756,7 +1104,6 @@
         "required": [
           "pacienteId",
           "profesionalId",
-          "especialidadId",
           "fechaHoraInicio",
           "fechaHoraFin"
         ]
@@ -804,8 +1151,7 @@
             "format": "date-time"
           },
           "motivoCancelacion": {
-            "type": "string",
-            "description": "Solo presente si el turno fue cancelado"
+            "type": "string"
           },
           "canalNotificacion": {
             "type": "string",
@@ -815,7 +1161,11 @@
               "SMS"
             ]
           },
-          "creadoEn": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
             "type": "string",
             "format": "date-time"
           }
@@ -824,7 +1174,6 @@
           "id",
           "pacienteId",
           "profesionalId",
-          "especialidadId",
           "fechaHoraInicio",
           "fechaHoraFin",
           "estado"
@@ -834,10 +1183,18 @@
         "type": "object",
         "properties": {
           "codigo": {
-            "type": "string"
+            "type": "string",
+            "example": "TURNO_OCUPADO"
           },
           "mensaje": {
-            "type": "string"
+            "type": "string",
+            "example": "El profesional ya tiene un turno reservado en ese horario"
+          },
+          "detalles": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [

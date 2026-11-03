@@ -1,0 +1,10 @@
+{
+  "eventId": "3f5204d4-8952-4a3f-92ea-0a6222151299",
+  "type": "turno.reservado",
+  "version": 1,
+  "occurredAt": "2026-11-20T09:00:00.000Z",
+  "data": {
+    "turnoId": 12
+  }
+}
+

@@ -12,7 +12,9 @@
     "test:auth": "node tests/test_auth.js",
     "test:messaging": "node tests/test_messaging.js",
     "test:resilience": "node tests/test_resilience.js",
-    "test:dlq": "node tests/test_retry_dlq.js"
+    "test:dlq": "node tests/test_retry_dlq.js",
+    "test:ws": "node tests/test_websocket.js",
+    "test:docs": "node tests/test_docs.js"
   },
   "dependencies": {
     "amqplib": "^2.2.0",
@@ -22,7 +24,8 @@
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.5",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
