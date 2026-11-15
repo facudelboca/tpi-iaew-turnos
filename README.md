@@ -8,6 +8,8 @@ Trabajo Práctico Integrador para la cátedra **Integración de Aplicaciones Emp
 - **Dominio:** Dominio 3 — Sistema de Reserva de Turnos de Salud
 - **Integrantes:**
   - Facundo Del Boca (Legajo: 89410)
+- **Repositorio:** [https://github.com/facudelboca/tpi-iaew-turnos](https://github.com/facudelboca/tpi-iaew-turnos)
+- **Tag de Entrega:** `v1.0.0`
 
 ---
 
