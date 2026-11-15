@@ -12,7 +12,7 @@ Implementar una **Arquitectura de Seguridad Dual** basada en estándares abierto
    - Utilizado para todos los endpoints de negocio de la API (`/api/v1/turnos`, `/api/v1/pacientes`, `/api/v1/profesionales`, `/api/v1/especialidades`).
    - El Identity Provider es **Auth0**, emitiendo tokens JWT firmados con algoritmo asimétrico **RS256** validados contra el conjunto de claves públicas JWKS de Auth0.
    - Parámetros de validación:
-     - Issuer Base URL: `AUTH0_ISSUER_BASE_URL` (`https://facundodelboca.us.auth0.com/`)
+     - Issuer Base URL: `AUTH0_ISSUER_BASE_URL` (`https://<tu-tenant>.us.auth0.com/`)
      - Audience: `AUTH0_AUDIENCE` (`https://iaew-turnos-api`)
    - El middleware `express-oauth2-jwt-bearer` valida la vigencia, firma y claims del token en cada solicitud.
    - **Autorización por Scopes Granulares:**

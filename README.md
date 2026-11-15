@@ -4,11 +4,9 @@ Trabajo Práctico Integrador para la cátedra **Integración de Aplicaciones Emp
 
 ---
 
-## 1. Integrantes del Equipo y Dominio de Negocio
+## 1. Identificación del Proyecto y Dominio de Negocio
 - **Dominio:** Dominio 3 — Sistema de Reserva de Turnos de Salud
-- **Integrantes:**
-  - Facundo Del Boca (Legajo: 89410)
-- **Repositorio:** [https://github.com/facudelboca/tpi-iaew-turnos](https://github.com/facudelboca/tpi-iaew-turnos)
+- **Modalidad:** Trabajo en Equipo
 - **Tag de Entrega:** `v1.0.0`
 
 ---
@@ -48,7 +46,7 @@ Copiar el archivo base: `cp .env.example .env`.
 | `DB_HOST` / `DB_PORT` | Host y puerto de base de datos | `localhost` / `5432` |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Credenciales de base de datos | `iaew_turnos_db` / `iaew` / `iaew-local` |
 | `RABBIT_URL` | URI de conexión al broker RabbitMQ | `amqp://iaew:iaew-local@localhost:5672` |
-| `AUTH0_ISSUER_BASE_URL` | Dominio del tenant Auth0 | `https://facundodelboca.us.auth0.com/` |
+| `AUTH0_ISSUER_BASE_URL` | Dominio del tenant Auth0 | `https://<tu-tenant>.us.auth0.com/` |
 | `AUTH0_AUDIENCE` | Identificador de la API en Auth0 | `https://iaew-turnos-api` |
 | `INTERNAL_API_KEY` | Clave secreta para endpoints administrativos | `iaew-turnos-secret-api-key-2026` |
 | `AUTH0_TEST_CLIENT_ID` | Client ID de la app M2M para pruebas | Credencial provista en Auth0 |
@@ -71,7 +69,7 @@ Copiar el archivo base: `cp .env.example .env`.
 ## 7. Obtención de Access Token M2M
 ```bash
 curl --request POST \
-  --url "https://facundodelboca.us.auth0.com/oauth/token" \
+  --url "https://<tu-tenant>.us.auth0.com/oauth/token" \
   --header "content-type: application/json" \
   --data '{
     "client_id": "<TU_CLIENT_ID>",
