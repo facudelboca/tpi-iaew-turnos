@@ -416,7 +416,7 @@ async function run() {
           id: i,
           idempotencyKey: key,
           statusCode: response.status,
-          businessCode: resBody.code || resBody.error || (response.status === 201 ? 'TURNO_CREADO' : 'DESCONOCIDO'),
+          businessCode: resBody.codigo || resBody.code || (typeof resBody.error === 'string' ? resBody.error : resBody.error?.codigo) || (response.status === 201 ? 'TURNO_CREADO' : 'DESCONOCIDO'),
           correlationId: response.headers.get('x-correlation-id'),
           durationMs
         };

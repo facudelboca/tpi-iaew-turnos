@@ -17,7 +17,9 @@
     "test:docs": "node tests/test_docs.js",
     "test:obs": "node tests/test_observability.js",
     "test:postman": "node tests/test_postman.js",
-    "test:load": "node tests/test_load_concurrency.js"
+    "test:load": "node tests/test_load_concurrency.js",
+    "test": "node tests/test_postman.js",
+    "test:all": "node tests/test_auth.js && node tests/test_websocket.js && node tests/test_observability.js && node tests/test_load_concurrency.js && node tests/test_postman.js"
   },
   "dependencies": {
     "amqplib": "^2.2.0",

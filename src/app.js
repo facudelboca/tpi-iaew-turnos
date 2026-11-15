@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const http = require('http');
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
@@ -12,6 +12,7 @@ const { initWebSocket } = require('./lib/websocket');
 const observabilityMiddleware = require('./middlewares/observability');
 const { register, getMetricsSummary } = require('./lib/metrics');
 const { getDashboardHtml } = require('./lib/dashboardHtml');
+const { getAgendaLiveHtml } = require('./lib/agendaLiveHtml');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,14 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/dashboard', (req, res) => {
   res.type('html').send(getDashboardHtml());
+});
+
+app.get('/agenda-live', (req, res) => {
+  res.type('html').send(getAgendaLiveHtml());
+});
+
+app.get('/agenda', (req, res) => {
+  res.type('html').send(getAgendaLiveHtml());
 });
 
 app.get('/api/v1/metrics-summary', async (req, res) => {
@@ -57,7 +66,8 @@ app.get('/', (req, res) => {
     endpoints: '/api/v1',
     websocket: '/ws/agenda',
     metricas: '/metrics',
-    dashboard: '/dashboard'
+    dashboard: '/dashboard',
+    agendaLive: '/agenda-live'
   });
 });
 

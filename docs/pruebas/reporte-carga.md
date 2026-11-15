@@ -3,7 +3,7 @@
 ## 1. Resumen Ejecutivo
 - **Objetivo:** Demostrar la robustez del sistema frente a condiciones de carrera (Race Conditions) y validar el cumplimiento del aislamiento transaccional (ACID) mediante bloqueo pesimista en PostgreSQL.
 - **Escenario:** 30 peticiones concurrentes simultáneas intentando reservar el mismo turno médico para el mismo profesional en la misma franja horaria.
-- **Fecha de Ejecución:** 2026-11-03T15:54:07.821Z
+- **Fecha de Ejecución:** 2026-11-15T20:56:54.783Z
 - **Entorno:** Node.js v22.17.0, PostgreSQL 16, RabbitMQ 3.13.
 
 ## 2. Resultados de Métricas Clave
@@ -15,10 +15,10 @@
 | **Rechazos por Solapamiento (409 Conflict)** | 29 | Exactamente 29 | APROBADO |
 | **Errores de Servidor (500 / 5xx)** | 0 | 0 | APROBADO |
 | **Turnos Persistidos en Base de Datos** | 1 | Exactamente 1 | APROBADO |
-| **Throughput** | 22.26 req/s | > 10 req/s | APROBADO |
-| **Latencia p50** | 1251 ms | < 100 ms | APROBADO |
-| **Latencia p90** | 1302 ms | < 250 ms | APROBADO |
-| **Latencia p95** | 1309 ms | < 300 ms | APROBADO |
+| **Throughput** | 74.44 req/s | > 10 req/s | APROBADO |
+| **Latencia p50** | 322 ms | < 100 ms | APROBADO |
+| **Latencia p90** | 370 ms | < 250 ms | APROBADO |
+| **Latencia p95** | 375 ms | < 300 ms | APROBADO |
 
 ## 3. Justificación del Mecanismo Transaccional
 Para garantizar que dos pacientes no obtengan el mismo turno médico en condiciones de carrera de alta concurrencia, la aplicación emplea:

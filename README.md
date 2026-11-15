@@ -174,7 +174,8 @@ docker compose exec api npm run seed
 ---
 
 ## 14. Integración en Tiempo Real (WebSocket)
-- Canal: `ws://localhost:3000/ws/agenda`
+- **Canal WebSocket:** `ws://localhost:3000/ws/agenda`
+- **Monitor Visual en Vivo:** `http://localhost:3000/agenda-live` (panel clínico que recibe y muestra en vivo las reservas y cancelaciones transmitidas por push).
 - Al crearse o cancelarse un turno, el servidor transmite el evento en vivo a los clientes conectados sin requerir polling.
 - Prueba automatizada: `npm run test:ws`.
 
@@ -197,6 +198,7 @@ docker compose exec api npm run seed
 | `GET` | `/health` | Público | Healthcheck del servicio |
 | `GET` | `/metrics` | Público | Métricas en formato Prometheus |
 | `GET` | `/dashboard` | Público | Dashboard visual de telemetría |
+| `GET` | `/agenda-live` | Público | Monitor en tiempo real de agenda (WebSocket) |
 | `GET` | `/docs` | Público | Documentación interactiva Swagger |
 | `GET` | `/api/v1/profesionales` | Público | Lista de médicos y sus días de atención |
 | `POST` | `/api/v1/pacientes` | Público | Creación de paciente |
@@ -217,3 +219,4 @@ docker compose exec api npm run seed
   - `06_integracion_tiempo_real_websocket.md`: Servidor WebSocket nativo desacoplado.
 - **Limitaciones Conocidas:** Despliegue actual configurado en nodo único para PostgreSQL y RabbitMQ; recordatorios simulados internamente sin proveedor comercial SMS/WhatsApp de pago.
 - **Mejoras Futuras:** Implementación del patrón Transactional Outbox para entrega exactly-once ante caídas del broker.
+- **Entrega y Versionado:** Tag de release `v1.0.0`.

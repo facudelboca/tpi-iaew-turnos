@@ -115,9 +115,12 @@ function getDashboardHtml() {
       <h1>IAEW 2026 — Telemetria y Observabilidad</h1>
       <p style="color: var(--muted); font-size: 0.875rem;">Monitoreo en vivo de percentiles p95, throughput y transacciones ACID</p>
     </div>
-    <div class="status-badge">
-      <span class="pulse"></span>
-      <span>Prometheus Metrics Activo</span>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/agenda-live" style="background:#0284c7;color:#fff;padding:6px 14px;border-radius:9999px;font-size:0.875rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">⚡ Agenda en Vivo (WebSocket)</a>
+      <div class="status-badge">
+        <span class="pulse"></span>
+        <span>Prometheus Metrics Activo</span>
+      </div>
     </div>
   </header>
 

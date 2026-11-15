@@ -262,20 +262,21 @@
           "script": {
             "exec": [
               "const runId = Date.now() + Math.floor(Math.random() * 100000);",
-              "pm.environment.set(\"idempotencyKey\", \"postman-run-\" + runId);",
-              "const d = new Date();",
-              "const offsetWeeks = 50 + Math.floor(Math.random() * 50);",
-              "d.setUTCDate(d.getUTCDate() + offsetWeeks * 7);",
-              "while (d.getUTCDay() !== 1) {",
-              "    d.setUTCDate(d.getUTCDate() + 1);",
-              "}",
+              "pm.environment.set('idempotencyKey', 'postman-run-' + runId);",
+              "const offsetWeeks = 40 + Math.floor(Math.random() * 80);",
+              "const d = new Date(Date.now() + offsetWeeks * 7 * 86400000);",
+              "while (d.getUTCDay() !== 1) { d.setUTCDate(d.getUTCDate() + 1); }",
               "const y = d.getUTCFullYear();",
               "const m = String(d.getUTCMonth() + 1).padStart(2, '0');",
               "const dia = String(d.getUTCDate()).padStart(2, '0');",
-              "const inicio = `${y}-${m}-${dia}T09:00:00.000Z`;",
-              "const fin = `${y}-${m}-${dia}T09:30:00.000Z`;",
-              "pm.environment.set(\"slotInicio\", inicio);",
-              "pm.environment.set(\"slotFin\", fin);"
+              "const hours = ['08:00:00', '08:30:00', '09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00', '11:30:00', '12:00:00'];",
+              "const slotIdx = Math.floor(Math.random() * (hours.length - 1));",
+              "const inicioHora = hours[slotIdx];",
+              "const finHora = hours[slotIdx + 1];",
+              "const inicio = y + '-' + m + '-' + dia + 'T' + inicioHora + '.000Z';",
+              "const fin = y + '-' + m + '-' + dia + 'T' + finHora + '.000Z';",
+              "pm.environment.set('slotInicio', inicio);",
+              "pm.environment.set('slotFin', fin);"
             ],
             "type": "text/javascript"
           }

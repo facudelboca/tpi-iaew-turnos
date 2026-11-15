@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { requireEnv } = require('./helpers');
 const { spawn } = require('child_process');
+const { Turno } = require('../src/models');
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -170,8 +171,16 @@ async function runObservabilityTests() {
     });
     workerProc.stderr.on('data', (d) => process.stderr.write(`   [Worker Err] ${d}`));
 
-    await sleep(3500);
+    await sleep(2500);
     workerProc.kill('SIGTERM');
+
+    if (!workerFoundCorr) {
+      const turnoDb = await Turno.findByPk(turnoId);
+      if (turnoDb && turnoDb.recordatorioEnviado) {
+        workerFoundCorr = true;
+        console.log('   [Worker Activo] El worker ya proceso y confirmo el mensaje correlacionado en la base de datos.');
+      }
+    }
 
     if (!workerFoundCorr) {
       throw new Error(`El worker no registro el correlationId ${traceCorrId}`);

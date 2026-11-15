@@ -1,0 +1,336 @@
+{
+  "info": {
+    "_postman_id": "defensa-7min-iaew-2026-turnos",
+    "name": "Turnos_Defensa_7Min",
+    "description": "Colección optimizada para la defensa presencial de 7 minutos del TPI IAEW 2026 (Dominio 3: Turnos de Salud). Contiene los 6 endpoints esenciales para demostrar seguridad dual, transacciones ACID, idempotencia, asincronía y WebSocket.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Obtener Token JWT (Auth0 M2M)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Retorna access_token Bearer\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.access_token).to.be.a(\"string\");",
+              "    pm.environment.set(\"accessToken\", data.access_token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"{{auth0ClientId}}\",\n  \"client_secret\": \"{{auth0ClientSecret}}\",\n  \"audience\": \"{{auth0Audience}}\",\n  \"grant_type\": \"client_credentials\"\n}"
+        },
+        "url": {
+          "raw": "{{auth0Issuer}}oauth/token",
+          "host": [
+            "{{auth0Issuer}}oauth"
+          ],
+          "path": [
+            "token"
+          ]
+        }
+      }
+    },
+    {
+      "name": "02 - Endpoint Administrativo (x-api-key)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Operacion administrativa autorizada con API Key\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.mensaje).to.be.a(\"string\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/sync-especialidades",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "admin",
+            "sync-especialidades"
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 - Reservar Turno (Flujo Feliz y RabbitMQ)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const runId = Date.now() + Math.floor(Math.random() * 100000);",
+              "pm.environment.set('idempotencyKey', 'defensa-run-' + runId);",
+              "const offsetWeeks = 40 + Math.floor(Math.random() * 80);",
+              "const d = new Date(Date.now() + offsetWeeks * 7 * 86400000);",
+              "while (d.getUTCDay() !== 1) { d.setUTCDate(d.getUTCDate() + 1); }",
+              "const y = d.getUTCFullYear();",
+              "const m = String(d.getUTCMonth() + 1).padStart(2, '0');",
+              "const dia = String(d.getUTCDate()).padStart(2, '0');",
+              "const hours = ['08:00:00', '08:30:00', '09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00', '11:30:00', '12:00:00'];",
+              "const slotIdx = Math.floor(Math.random() * (hours.length - 1));",
+              "const inicioHora = hours[slotIdx];",
+              "const finHora = hours[slotIdx + 1];",
+              "const inicio = y + '-' + m + '-' + dia + 'T' + inicioHora + '.000Z';",
+              "const fin = y + '-' + m + '-' + dia + 'T' + finHora + '.000Z';",
+              "pm.environment.set('slotInicio', inicio);",
+              "pm.environment.set('slotFin', fin);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Header Idempotency-Replayed es false\", function () {",
+              "    pm.expect(pm.response.headers.get(\"Idempotency-Replayed\")).to.eql(\"false\");",
+              "});",
+              "pm.test(\"Header X-Correlation-ID presente\", function () {",
+              "    pm.expect(pm.response.headers.has(\"X-Correlation-ID\")).to.be.true;",
+              "});",
+              "pm.test(\"Turno confirmado exitosamente\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.id).to.be.a(\"number\");",
+              "    pm.expect(data.estado).to.eql(\"CONFIRMADO\");",
+              "    pm.environment.set(\"turnoId\", data.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": 1,\n  \"profesionalId\": 1,\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\",\n  \"motivoConsulta\": \"Control cardiológico semestral\",\n  \"canalNotificacion\": \"EMAIL\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "04 - Idempotencia (Reenvio Misma Clave)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Header Idempotency-Replayed es true\", function () {",
+              "    pm.expect(pm.response.headers.get(\"Idempotency-Replayed\")).to.eql(\"true\");",
+              "});",
+              "pm.test(\"Devuelve el mismo turno original sin duplicar\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.id).to.eql(pm.environment.get(\"turnoId\"));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": 1,\n  \"profesionalId\": 1,\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\",\n  \"motivoConsulta\": \"Control cardiológico semestral\",\n  \"canalNotificacion\": \"EMAIL\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "05 - Conflicto Solapamiento (Bloqueo Pesimista ACID)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 409 Conflict\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "pm.test(\"Error tipificado TURNO_OCUPADO\", function () {",
+              "    const data = pm.response.json();",
+              "    const codigo = data.code || data.codigo || data.error;",
+              "    pm.expect(codigo).to.include(\"TURNO_OCUPADO\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "defensa-conflicto-key-{{$timestamp}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pacienteId\": 2,\n  \"profesionalId\": 1,\n  \"fechaHoraInicio\": \"{{slotInicio}}\",\n  \"fechaHoraFin\": \"{{slotFin}}\",\n  \"motivoConsulta\": \"Otro paciente intentando mismo horario\",\n  \"canalNotificacion\": \"SMS\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos"
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 - Cancelar Turno (Dispara Evento WebSocket)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code es 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Estado actualizado a CANCELADO\", function () {",
+              "    const data = pm.response.json();",
+              "    pm.expect(data.estado).to.eql(\"CANCELADO\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"motivoCancelacion\": \"Cancelado durante la defensa oral de 7 minutos\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/turnos/{{turnoId}}/cancelar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "turnos",
+            "{{turnoId}}",
+            "cancelar"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -48,8 +48,6 @@ async function reservarTurno(datos, idempotencyKey) {
           replayed: true,
           data: {
             ...turnoExistente.toJSON(),
-            turno: turnoExistente,
-            evento: turnoExistente.eventoPublicado,
             idempotencia: { key: idempotencyKey, replayed: true }
           }
         };
@@ -218,8 +216,6 @@ async function reservarTurno(datos, idempotencyKey) {
       replayed: false,
       data: {
         ...resultado,
-        turno: resultado,
-        evento,
         idempotencia: { key: idempotencyKey, replayed: false }
       }
     };
