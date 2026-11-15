@@ -1,12 +1,11 @@
 # Sistema de Reserva de Turnos de Salud - TPI IAEW 2026
 
-Trabajo Práctico Integrador para la cátedra **Integración de Aplicaciones Empresariales y Web (IAEW 2026)** — UTN-FRC.
+Trabajo Práctico Integrador para la cátedra **Integración de Aplicaciones en Entornos Web (IAEW 2026)** — UTN-FRC.
 
 ---
 
 ## 1. Identificación del Proyecto y Dominio de Negocio
 - **Dominio:** Dominio 3 — Sistema de Reserva de Turnos de Salud
-- **Modalidad:** Trabajo en Equipo
 - **Tag de Entrega:** `v1.0.0`
 
 ---
