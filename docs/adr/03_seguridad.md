@@ -3,7 +3,7 @@
 **Estado:** Aceptado
 
 **Contexto:**
-El sistema gestiona datos médicos sensibles y operaciones críticas de agenda. Se requiere una estrategia de seguridad robusta que distinga claramente entre el acceso de clientes externos (integraciones, aplicaciones móviles o pacientes) y el acceso a operaciones internas o administrativas (sincronización de catálogos médicos). La solución debe evitar sesiones HTTP acopladas para permitir la interoperabilidad con clientes desacoplados y workers asincrónicos.
+El sistema gestiona operaciones críticas de agenda médica como plataforma de integración empresarial (B2B / M2M). Se requiere una estrategia de seguridad robusta que distinga claramente entre el acceso de sistemas clientes autorizados (terminales de recepción hospitalaria, portales médicos integrados) y el acceso a operaciones internas o administrativas de infraestructura (sincronización de catálogos médicos). La solución debe evitar sesiones HTTP acopladas para permitir la interoperabilidad con clientes desacoplados y workers asincrónicos.
 
 **Decisión:**
 Implementar una **Arquitectura de Seguridad Dual** basada en estándares abiertos:
