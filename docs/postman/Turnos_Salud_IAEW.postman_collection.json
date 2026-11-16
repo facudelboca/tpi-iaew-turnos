@@ -263,7 +263,7 @@
             "exec": [
               "const runId = Date.now() + Math.floor(Math.random() * 100000);",
               "pm.environment.set('idempotencyKey', 'postman-run-' + runId);",
-              "const offsetWeeks = 40 + Math.floor(Math.random() * 80);",
+              "const offsetWeeks = 10 + Math.floor(Math.random() * 500);",
               "const d = new Date(Date.now() + offsetWeeks * 7 * 86400000);",
               "while (d.getUTCDay() !== 1) { d.setUTCDate(d.getUTCDate() + 1); }",
               "const y = d.getUTCFullYear();",
