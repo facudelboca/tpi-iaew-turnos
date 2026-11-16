@@ -7,17 +7,13 @@ Trabajo Práctico Integrador para la cátedra **Integración de Aplicaciones en 
 - **Del Boca, Facundo - 91258**
 - **Pontelli, Matteo - 87851**
 
-**Enlace al repositorio:** https://github.com/facudelboca/tpi-iaew-turnos
-
-**HASH del Ultimo Commit**:`9618c4681ea6e3d527178dacf3bc2e6733f2d976`
-
 ---
 
 ## 1. Identificación del Proyecto y Dominio de Negocio
 - **Dominio:** Dominio 3 — Sistema de Reserva de Turnos de Salud
 - **Tag de Entrega:** `v1.0.0`
 - **Enlace al repositorio:**: https://github.com/facudelboca/tpi-iaew-turnos
-- **HASH del Ultimo Commit**: `9618c4681ea6e3d527178dacf3bc2e6733f2d976` 
+- **HASH del Ultimo Commit**: `0df3738` 
 
 ---
 
