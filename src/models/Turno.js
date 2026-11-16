@@ -55,7 +55,7 @@ const Turno = sequelize.define(
       field: 'motivo_consulta'
     },
     estado: {
-      type: DataTypes.ENUM('PENDIENTE', 'CONFIRMADO', 'CANCELADO', 'COMPLETADO'),
+      type: DataTypes.STRING(20),
       allowNull: false,
       defaultValue: 'PENDIENTE',
       validate: {
@@ -66,7 +66,7 @@ const Turno = sequelize.define(
       }
     },
     canalNotificacion: {
-      type: DataTypes.ENUM('EMAIL', 'WHATSAPP', 'SMS'),
+      type: DataTypes.STRING(20),
       allowNull: false,
       defaultValue: 'EMAIL',
       field: 'canal_notificacion',

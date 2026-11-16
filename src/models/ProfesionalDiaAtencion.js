@@ -15,7 +15,7 @@ const ProfesionalDiaAtencion = sequelize.define(
       field: 'profesional_id'
     },
     dia: {
-      type: DataTypes.ENUM('LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'),
+      type: DataTypes.STRING(20),
       allowNull: false,
       validate: {
         isIn: {
@@ -25,12 +25,12 @@ const ProfesionalDiaAtencion = sequelize.define(
       }
     },
     horaInicio: {
-      type: DataTypes.STRING(5), // Formato HH:mm
+      type: DataTypes.STRING(5),
       allowNull: false,
       field: 'hora_inicio'
     },
     horaFin: {
-      type: DataTypes.STRING(5), // Formato HH:mm
+      type: DataTypes.STRING(5),
       allowNull: false,
       field: 'hora_fin'
     }
